@@ -19,12 +19,12 @@ The guide is tailored to a specific hardware configuration:
 
 **Option A (Proxmox with GPU Passthrough)** is the selected architecture:
 
-1. **Legion Desktop (192.168.1.110)**: Runs Proxmox VE 24/7 as primary hypervisor with GPU passthrough for Windows 11 gaming VM
-2. **VM 100 - Windows 11 Gaming (192.168.1.111)**: GTX 1060 passthrough, 16GB RAM, native gaming performance
-3. **CT 200 - Infra LXC (192.168.1.120)**: Docker host running Portainer, RustDesk, Nextcloud, Tailscale
+1. **Legion Desktop (192.168.50.110)**: Runs Proxmox VE 24/7 as primary hypervisor with GPU passthrough for Windows 11 gaming VM
+2. **VM 100 - Windows 11 Gaming (192.168.50.111)**: GTX 1060 passthrough, 16GB RAM, native gaming performance
+3. **CT 200 - Infra LXC (192.168.50.120)**: Docker host running Portainer, RustDesk, Nextcloud, Tailscale
 4. **CT 210 - Storage LXC**: Samba/NFS exports, snapshot scripts
-5. **Dell Latitude 7520 (192.168.1.130)**: Ubuntu Server + Docker running Jellyfin/Tdarr with Intel Quick Sync hardware transcoding
-6. **T480s #1 (192.168.1.140)**: Proxmox Backup Server with backup-ssd mirror receiving ZFS replicas
+5. **Dell Latitude 7520 (192.168.50.130)**: Ubuntu Server + Docker running Jellyfin/Tdarr with Intel Quick Sync hardware transcoding
+6. **T480s #1 (192.168.50.140)**: Proxmox Backup Server with backup-ssd mirror receiving ZFS replicas
 7. **Remote Access**: Tailscale VPN for secure remote access without port forwarding
 
 ### Key Services
@@ -43,11 +43,11 @@ The guide is tailored to a specific hardware configuration:
 
 ### IP Address Scheme
 ```
-192.168.1.110 - Legion Proxmox host
-192.168.1.111 - Windows 11 Gaming VM
-192.168.1.120 - Infra LXC (Docker/Portainer/RustDesk/Nextcloud)
-192.168.1.130 - Dell Latitude 7520 (Jellyfin/Tdarr)
-192.168.1.140 - Lenovo T480s Proxmox Backup Server
+192.168.50.110 - Legion Proxmox host
+192.168.50.111 - Windows 11 Gaming VM
+192.168.50.120 - Infra LXC (Docker/Portainer/RustDesk/Nextcloud)
+192.168.50.130 - Dell Latitude 7520 (Jellyfin/Tdarr)
+192.168.50.140 - Lenovo T480s Proxmox Backup Server
 ```
 
 ## Documentation Structure
@@ -71,7 +71,7 @@ The repository contains multiple interconnected documentation files:
 - Start with `phase1-simplified-build.md` if building with limited hardware immediately
 - Use `your_hardware_homelab.md` as the canonical reference for the complete architecture
 - Reference troubleshooting guides when specific issues arise during setup
-- Keep IP addressing scheme (192.168.1.110-140) consistent across all documentation
+- Keep IP addressing scheme (192.168.50.110-140) consistent across all documentation
 
 ## Key Technical Decisions
 
@@ -128,7 +128,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 
 - Maintain the step-by-step instructional format with copy-paste ready commands
 - Include both conceptual explanations and practical commands
-- Keep IP addresses consistent with the established scheme (192.168.1.110-140)
+- Keep IP addresses consistent with the established scheme (192.168.50.110-140)
 - Preserve the three-phase installation structure
 - Update power consumption estimates if hardware allocation changes
 - Maintain the balance between beginner-friendly explanations and technical depth

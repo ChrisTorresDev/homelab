@@ -2,7 +2,7 @@
 
 **Situation**: Proxmox VE 8 boots successfully but login fails at the console with the root password you set during installation.
 
-**Goal**: Regain access to your Legion Desktop Proxmox host (192.168.1.110) as quickly as possible.
+**Goal**: Regain access to your Legion Desktop Proxmox host (192.168.50.110) as quickly as possible.
 
 ---
 
@@ -212,7 +212,7 @@ pveversion
 **Expected output:**
 ```
 pve
-inet 192.168.1.110/24 brd 192.168.1.255 scope global vmbr0
+inet 192.168.50.110/24 brd 192.168.50.255 scope global vmbr0
 pve-manager/8.X.X/XXXXXXX (running kernel: 6.X.X-X-pve)
 ```
 
@@ -221,7 +221,7 @@ pve-manager/8.X.X/XXXXXXX (running kernel: 6.X.X-X-pve)
 From your main computer (not the Legion):
 
 1. Open a web browser
-2. Navigate to: `https://192.168.1.110:8006`
+2. Navigate to: `https://192.168.50.110:8006`
 3. Accept the self-signed certificate warning
 4. Login with:
    - **Username**: `root`
@@ -458,7 +458,7 @@ Consider reinstallation only if:
 
 3. **Immediately after first boot**:
    - Login at console with simple password
-   - Access web UI at `https://192.168.1.110:8006`
+   - Access web UI at `https://192.168.50.110:8006`
    - Change to secure password from web UI
    - Test new password at console before proceeding
 
@@ -521,10 +521,10 @@ Cannot login to Proxmox console
 ```markdown
 # Homelab Credentials (DO NOT COMMIT TO PUBLIC REPOS)
 
-## Proxmox VE (Legion - 192.168.1.110)
+## Proxmox VE (Legion - 192.168.50.110)
 - Username: root
 - Password: [your secure password]
-- Web UI: https://192.168.1.110:8006
+- Web UI: https://192.168.50.110:8006
 - Keyboard layout: US English
 
 ## Recovery Information
@@ -588,7 +588,7 @@ dpkg-reconfigure keyboard-configuration
 
 ### Access Proxmox Web UI
 ```
-URL: https://192.168.1.110:8006
+URL: https://192.168.50.110:8006
 Username: root
 Realm: Linux PAM standard authentication
 Password: [your password]
@@ -601,7 +601,7 @@ Password: [your password]
 You'll know you've successfully recovered when:
 
 - You can login at the physical console with username `root`
-- You can access the web UI at `https://192.168.1.110:8006`
+- You can access the web UI at `https://192.168.50.110:8006`
 - Web UI login works with the same credentials
 - You can change the password from web UI
 - New password works at both console and web UI

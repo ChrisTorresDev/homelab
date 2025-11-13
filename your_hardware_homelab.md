@@ -161,11 +161,11 @@ Run everything on the laptops via Proxmox/Ubuntu nodes. Power efficient yet limi
   - ~4GB RAM + spare cores reserved for short-lived lab VMs (Kali, pfSense, etc.).
 
 ### Supporting Nodes & Roles
-- **Dell Latitude 7520 (192.168.1.130)**
+- **Dell Latitude 7520 (192.168.50.130)**
   - Ubuntu Server 24.04 + Docker.
   - Jellyfin (Quick Sync), Tdarr, qBittorrent, Kavita, etc.
   - Mounts Legion’s media share via NFS (`bulkpool/media`).
-- **Lenovo T480s #1 (192.168.1.140)**
+- **Lenovo T480s #1 (192.168.50.140)**
   - Proxmox Backup Server w/ `backup-ssd` mirror.
   - Receives nightly `zfs send` from Legion + Borg backups from Jellyfin node.
   - Monitors UPS via USB if colocated.
@@ -228,11 +228,11 @@ Run everything on the laptops via Proxmox/Ubuntu nodes. Power efficient yet limi
 ### Reference Credentials & Network Plan
 | Host | Role | Static IP |
 |------|------|-----------|
-| Legion Proxmox | Primary hypervisor | `192.168.1.110/24` |
-| Windows 11 VM | Gaming workstation | `192.168.1.111/24` |
-| CT 200 (`infra-lxc`) | Docker/Portainer/RustDesk/Nextcloud | `192.168.1.120/24` |
-| Dell Latitude 7520 | Jellyfin media node | `192.168.1.130/24` |
-| Lenovo T480s #1 | Proxmox Backup Server | `192.168.1.140/24` |
+| Legion Proxmox | Primary hypervisor | `192.168.50.110/24` |
+| Windows 11 VM | Gaming workstation | `192.168.50.111/24` |
+| CT 200 (`infra-lxc`) | Docker/Portainer/RustDesk/Nextcloud | `192.168.50.120/24` |
+| Dell Latitude 7520 | Jellyfin media node | `192.168.50.130/24` |
+| Lenovo T480s #1 | Proxmox Backup Server | `192.168.50.140/24` |
 
 Reserve these addresses on your router’s DHCP server before you start.
 
@@ -248,14 +248,14 @@ Reserve these addresses on your router’s DHCP server before you start.
 3. Select ZFS **RAID1** for the two 1TB SSDs as the system disk.
    - The installer will create a pool named `rpool` (this is the default and recommended).
    - This pool will hold the Proxmox system, VM disks, and container storage.
-4. Set the management IP to `192.168.1.110/24`, gateway = router IP, DNS = router or 1.1.1.1.
+4. Set the management IP to `192.168.50.110/24`, gateway = router IP, DNS = router or 1.1.1.1.
 5. After install, disable the enterprise repository and enable the no-subscription repo:
 ```bash
 sed -i 's/^deb/#deb/' /etc/apt/sources.list.d/pve-enterprise.list
 echo "deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription" > /etc/apt/sources.list.d/pve-no-subscription.list
 apt update && apt full-upgrade
 ```
-6. Update `/etc/hosts` to map `192.168.1.110 legion-proxmox`, then reboot.
+6. Update `/etc/hosts` to map `192.168.50.110 legion-proxmox`, then reboot.
 
 #### Step 1.2: Attach Remaining Drives & Build Pools
 ```bash
@@ -516,8 +516,8 @@ pct create 200 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
   --rootfs 8 \
   --memory 6144 \
   --cores 4 \
-  --net0 name=eth0,bridge=vmbr0,ip=192.168.1.120/24,gw=192.168.1.1 \
-  --nameserver 192.168.1.1 \
+  --net0 name=eth0,bridge=vmbr0,ip=192.168.50.120/24,gw=192.168.50.1 \
+  --nameserver 192.168.50.1 \
   --features nesting=1 \
   --unprivileged 1 \
   --password
@@ -591,7 +591,7 @@ Clone CT 200 to create CT 210:
 pct clone 200 210 --hostname storage-lxc --full
 
 # Update network configuration
-pct set 210 --net0 name=eth0,bridge=vmbr0,ip=192.168.1.125/24,gw=192.168.1.1
+pct set 210 --net0 name=eth0,bridge=vmbr0,ip=192.168.50.125/24,gw=192.168.50.1
 
 # Add mount points for bulk storage
 cat >> /etc/pve/lxc/210.conf <<EOF
@@ -615,9 +615,9 @@ apt install -y nfs-kernel-server samba samba-common-bin
 # Configure NFS exports
 cat >> /etc/exports <<EOF
 # Media share for Jellyfin node (Dell)
-/media 192.168.1.130(rw,sync,no_subtree_check,root_squash,all_squash,anonuid=1000,anongid=1000)
+/media 192.168.50.130(rw,sync,no_subtree_check,root_squash,all_squash,anonuid=1000,anongid=1000)
 # Backup share
-/cloud 192.168.1.0/24(rw,sync,no_subtree_check,root_squash)
+/cloud 192.168.50.0/24(rw,sync,no_subtree_check,root_squash)
 EOF
 
 # Apply NFS exports
@@ -674,10 +674,10 @@ chmod -R 755 /media /cloud
 Verify shares are accessible:
 ```bash
 # Test NFS from Legion host
-showmount -e 192.168.1.125
+showmount -e 192.168.50.125
 
 # Test from Jellyfin node (Dell)
-ssh 192.168.1.130 "showmount -e 192.168.1.125"
+ssh 192.168.50.130 "showmount -e 192.168.50.125"
 ```
 
 #### Step 1.7: Configure UPS & Backups on Legion
@@ -909,7 +909,7 @@ zpool status | grep -i error
 ### Phase 2: Deploy the Media & Application Node (Dell Latitude 7520)
 
 #### Step 2.1: Install Ubuntu Server 24.04
-1. Write the ISO using Ventoy/Etcher, boot the Dell, and install with static IP `192.168.1.130`.
+1. Write the ISO using Ventoy/Etcher, boot the Dell, and install with static IP `192.168.50.130`.
 2. Select **OpenSSH server** during install.
 3. After first boot:
 ```bash
@@ -940,7 +940,7 @@ sudo apt install -y docker-compose-plugin
 ```bash
 sudo mkdir -p /mnt/media
 sudo nano /etc/fstab
-# 192.168.1.110:/bulkpool/media  /mnt/media  nfs  defaults,_netdev  0  0
+# 192.168.50.110:/bulkpool/media  /mnt/media  nfs  defaults,_netdev  0  0
 sudo mount -a
 ```
 
@@ -958,7 +958,7 @@ Create `/srv/media/docker-compose.yml` (see Service Configuration for the full f
 - Remove battery, mount SSD mirror, connect Ethernet and (optionally) the UPS USB cable.
 
 #### Step 3.2: Install Proxmox Backup Server
-1. Install PBS, assign IP `192.168.1.140`.
+1. Install PBS, assign IP `192.168.50.140`.
 2. Create `backup-ssd` mirror:
 ```bash
 zpool create backup-ssd mirror /dev/disk/by-id/ssdA /dev/disk/by-id/ssdB
@@ -972,10 +972,10 @@ Set up SSH keys for password-less replication:
 ```bash
 # On Legion, create SSH key for replication
 ssh-keygen -t ed25519 -f /root/.ssh/pbs -N ""
-ssh-copy-id -i /root/.ssh/pbs.pub root@192.168.1.140
+ssh-copy-id -i /root/.ssh/pbs.pub root@192.168.50.140
 
 # Test connection
-ssh -i /root/.ssh/pbs root@192.168.1.140 "hostname"
+ssh -i /root/.ssh/pbs root@192.168.50.140 "hostname"
 ```
 
 Create the ZFS replication script with proper incremental support:
@@ -988,7 +988,7 @@ cat > /usr/local/sbin/zfs-replicate.sh <<'EOF'
 set -euo pipefail
 
 # Configuration
-REMOTE_HOST="root@192.168.1.140"
+REMOTE_HOST="root@192.168.50.140"
 SSH_KEY="/root/.ssh/pbs"
 DATASETS=("rpool/vmdata" "bulkpool/media" "bulkpool/cloud")
 SNAP_PREFIX="repl"
@@ -1098,7 +1098,7 @@ tail -50 /var/log/zfs-replication.log
 zfs list -t snapshot | grep repl-
 
 # Verify data arrived on backup server
-ssh root@192.168.1.140 "zfs list -t all | grep backup-ssd"
+ssh root@192.168.50.140 "zfs list -t all | grep backup-ssd"
 ```
 
 Schedule nightly replication:
@@ -1139,7 +1139,7 @@ services:
   hbbs:
     image: rustdesk/rustdesk-server:latest
     container_name: rustdesk-hbbs
-    command: hbbs -r 192.168.1.120:21117
+    command: hbbs -r 192.168.50.120:21117
     volumes:
       - ./data:/root
     ports:
@@ -1174,8 +1174,8 @@ echo "Save this public key for configuring RustDesk clients"
 
 **Configure RustDesk clients:**
 - On each client machine, install RustDesk
-- Settings → Network → ID Server: `192.168.1.120`
-- Settings → Network → Relay Server: `192.168.1.120`
+- Settings → Network → ID Server: `192.168.50.120`
+- Settings → Network → Relay Server: `192.168.50.120`
 - Settings → Network → Key: `<paste the public key from above>`
 
 ### Jellyfin Media Organization
@@ -1184,7 +1184,7 @@ echo "Save this public key for configuring RustDesk clients"
 sudo mkdir -p /bulkpool/media/{Movies,TV,Music,Photos}
 sudo chown -R 1000:1000 /bulkpool/media
 ```
-- Follow the standard naming scheme, mount shares on your workstation, and trigger library scans at `http://192.168.1.130:8096`.
+- Follow the standard naming scheme, mount shares on your workstation, and trigger library scans at `http://192.168.50.130:8096`.
 
 ### Jellyfin Hardware Acceleration Options
 | Device | GPU | Best Use | Notes |
@@ -1201,7 +1201,7 @@ sudo chmod 755 /dev/dri
 Then set Jellyfin → Dashboard → Playback → Hardware acceleration = **VA-API** with device `/dev/dri/renderD128`.
 
 ### Nextcloud (Infra LXC)
-- Reverse proxy (Caddy/Traefik) optional, otherwise access via `https://192.168.1.120`.
+- Reverse proxy (Caddy/Traefik) optional, otherwise access via `https://192.168.50.120`.
 - Data directory on `/bulkpool/cloud`; database lives on `fastpool/infra`.
 - Install apps: Calendar, Contacts, Tasks, Notes, Photos, Deck, Talk.
 
@@ -1215,7 +1215,7 @@ Then set Jellyfin → Dashboard → Playback → Hardware acceleration = **VA-AP
 ## Remote Access Setup
 
 ### Tailscale VPN
-1. Install on Legion Proxmox host and advertise `192.168.1.0/24`.
+1. Install on Legion Proxmox host and advertise `192.168.50.0/24`.
 2. Join from CT 200, Dell 7520, PBS, and the Windows VM.
 3. Approve subnet routes + exit nodes in the Tailscale admin console.
 4. Use ACLs to limit which devices can reach Jellyfin, Nextcloud, etc.
@@ -1259,7 +1259,7 @@ pct exec 200 -- bash -c "apt update && apt upgrade -y"
 pct exec 210 -- bash -c "apt update && apt upgrade -y"
 
 # Dell media node
-ssh 192.168.1.130 "sudo apt update && sudo apt upgrade -y && sudo docker images | grep -v REPOSITORY | awk '{print $1}' | xargs -L1 docker pull"
+ssh 192.168.50.130 "sudo apt update && sudo apt upgrade -y && sudo docker images | grep -v REPOSITORY | awk '{print $1}' | xargs -L1 docker pull"
 ```
 
 ### Quarterly Tasks
@@ -1282,7 +1282,7 @@ tail -100 /var/log/apcupsd.events
 qm create 999 --name backup-test --memory 1024 --cores 1 --net0 virtio,bridge=vmbr0
 
 # Restore latest backup to test VM
-# (Use PBS UI or: pbs-restore vm 100 999 --repository root@192.168.1.140:datastore)
+# (Use PBS UI or: pbs-restore vm 100 999 --repository root@192.168.50.140:datastore)
 
 # Boot test VM and verify
 qm start 999
@@ -1292,7 +1292,7 @@ qm stop 999
 qm destroy 999
 
 # Test ZFS replication restore
-ssh root@192.168.1.140 "zfs list -t snapshot backup-ssd/rpool/vmdata | tail -5"
+ssh root@192.168.50.140 "zfs list -t snapshot backup-ssd/rpool/vmdata | tail -5"
 ```
 
 ### Weekly Tasks - Archive Disk Backup
@@ -1444,11 +1444,11 @@ pct exec 200 -- tar -czf /root/docker-compose-backup-$(date +%Y%m%d).tar.gz /srv
 
 ## Quick Reference: IP Addresses
 ```
-192.168.1.110 - Legion Proxmox host (https://192.168.1.110:8006)
-192.168.1.111 - Windows 11 Gaming VM
-192.168.1.120 - Infra LXC (Docker, Portainer, RustDesk, Nextcloud)
-192.168.1.130 - Dell Latitude 7520 (Jellyfin/Tdarr)
-192.168.1.140 - Lenovo T480s Proxmox Backup Server
+192.168.50.110 - Legion Proxmox host (https://192.168.50.110:8006)
+192.168.50.111 - Windows 11 Gaming VM
+192.168.50.120 - Infra LXC (Docker, Portainer, RustDesk, Nextcloud)
+192.168.50.130 - Dell Latitude 7520 (Jellyfin/Tdarr)
+192.168.50.140 - Lenovo T480s Proxmox Backup Server
 ```
 
 ---

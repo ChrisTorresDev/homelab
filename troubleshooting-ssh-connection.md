@@ -5,10 +5,10 @@
 After installing Proxmox VE 8 on Legion Desktop, the system boots successfully and shows the login prompt at the physical console, but SSH connection from Mac fails with:
 
 ```
-ssh: connect to host 192.168.1.110 port 22: Operation timed out
+ssh: connect to host 192.168.50.110 port 22: Operation timed out
 ```
 
-**Expected IP**: 192.168.1.110 (configured during installation)
+**Expected IP**: 192.168.50.110 (configured during installation)
 **Symptom**: Connection timeout (not "connection refused")
 **What this means**: Either network isn't configured, IP is different, or there's a firewall issue
 
@@ -33,19 +33,19 @@ ip addr show
     inet 127.0.0.1/8 scope host lo
 
 2: enp3s0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
-    inet 192.168.1.110/24 brd 192.168.1.255 scope global enp3s0
+    inet 192.168.50.110/24 brd 192.168.50.255 scope global enp3s0
 
 3: vmbr0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500
-    inet 192.168.1.110/24 brd 192.168.1.255 scope global vmbr0
+    inet 192.168.50.110/24 brd 192.168.50.255 scope global vmbr0
 ```
 
 **Decision Tree:**
 
-✅ **If you see `192.168.1.110/24` on vmbr0 or your ethernet interface**: Network is configured correctly, proceed to Step 1.2
+✅ **If you see `192.168.50.110/24` on vmbr0 or your ethernet interface**: Network is configured correctly, proceed to Step 1.2
 
-❌ **If you see a DIFFERENT IP** (e.g., `192.168.1.50`): Your DHCP server assigned a different IP. Either:
-- Use the IP shown to SSH (e.g., `ssh root@192.168.1.50`)
-- OR fix the IP to 192.168.1.110 (see [Fix: Wrong IP Address](#fix-wrong-ip-address))
+❌ **If you see a DIFFERENT IP** (e.g., `192.168.50.50`): Your DHCP server assigned a different IP. Either:
+- Use the IP shown to SSH (e.g., `ssh root@192.168.50.50`)
+- OR fix the IP to 192.168.50.110 (see [Fix: Wrong IP Address](#fix-wrong-ip-address))
 
 ❌ **If you see NO IP on ethernet interface** (only `127.0.0.1` on lo): Network isn't configured. See [Fix: No IP Address](#fix-no-ip-address)
 
@@ -95,8 +95,8 @@ iface enp3s0 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
-    address 192.168.1.110/24
-    gateway 192.168.1.1
+    address 192.168.50.110/24
+    gateway 192.168.50.1
     bridge-ports enp3s0
     bridge-stp off
     bridge-fd 0
@@ -115,17 +115,17 @@ iface vmbr0 inet static
 #### Step 1.4: Test Gateway Connectivity
 
 ```bash
-ping -c 4 192.168.1.1
+ping -c 4 192.168.50.1
 ```
 
 **Expected output:**
 
 ```
-PING 192.168.1.1 (192.168.1.1) 56(84) bytes of data.
-64 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=0.5 ms
-64 bytes from 192.168.1.1: icmp_seq=2 ttl=64 time=0.4 ms
+PING 192.168.50.1 (192.168.50.1) 56(84) bytes of data.
+64 bytes from 192.168.50.1: icmp_seq=1 ttl=64 time=0.5 ms
+64 bytes from 192.168.50.1: icmp_seq=2 ttl=64 time=0.4 ms
 ...
---- 192.168.1.1 ping statistics ---
+--- 192.168.50.1 ping statistics ---
 4 packets transmitted, 4 received, 0% packet loss
 ```
 
@@ -288,7 +288,7 @@ systemctl stop pve-firewall
 
 ```bash
 # From your Mac terminal
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 ```
 
 **Decision Tree:**
@@ -313,7 +313,7 @@ Run these commands **from your Mac terminal**.
 
 ```bash
 # From Mac terminal
-ping -c 4 192.168.1.1
+ping -c 4 192.168.50.1
 ```
 
 **Decision Tree:**
@@ -331,17 +331,17 @@ ping -c 4 192.168.1.1
 
 ```bash
 # From Mac terminal
-ping -c 4 192.168.1.110
+ping -c 4 192.168.50.110
 ```
 
 **Expected output:**
 
 ```
-PING 192.168.1.110 (192.168.1.110): 56 data bytes
-64 bytes from 192.168.1.110: icmp_seq=0 ttl=64 time=0.5 ms
-64 bytes from 192.168.1.110: icmp_seq=1 ttl=64 time=0.4 ms
+PING 192.168.50.110 (192.168.50.110): 56 data bytes
+64 bytes from 192.168.50.110: icmp_seq=0 ttl=64 time=0.5 ms
+64 bytes from 192.168.50.110: icmp_seq=1 ttl=64 time=0.4 ms
 ...
---- 192.168.1.110 ping statistics ---
+--- 192.168.50.110 ping statistics ---
 4 packets transmitted, 4 received, 0% packet loss
 ```
 
@@ -360,13 +360,13 @@ PING 192.168.1.110 (192.168.1.110): 56 data bytes
 
 ```bash
 # From Mac terminal
-nc -zv 192.168.1.110 22
+nc -zv 192.168.50.110 22
 ```
 
 **Expected output:**
 
 ```
-Connection to 192.168.1.110 port 22 [tcp/ssh] succeeded!
+Connection to 192.168.50.110 port 22 [tcp/ssh] succeeded!
 ```
 
 **Decision Tree:**
@@ -374,7 +374,7 @@ Connection to 192.168.1.110 port 22 [tcp/ssh] succeeded!
 ✅ **If "succeeded"**: Port is open, SSH should work. Try SSH again:
 
 ```bash
-ssh -v root@192.168.1.110
+ssh -v root@192.168.50.110
 ```
 
 The `-v` flag shows verbose output to help diagnose the issue.
@@ -398,8 +398,8 @@ nano /etc/network/interfaces
 # Find the vmbr0 section and change the address line:
 auto vmbr0
 iface vmbr0 inet static
-    address 192.168.1.110/24    # Change this line
-    gateway 192.168.1.1
+    address 192.168.50.110/24    # Change this line
+    gateway 192.168.50.1
     bridge-ports enp3s0
     bridge-stp off
     bridge-fd 0
@@ -419,7 +419,7 @@ If you want to keep the DHCP-assigned IP, just use that IP for SSH:
 
 ```bash
 # From Mac
-ssh root@192.168.1.XX  # Use the IP from Step 1.1
+ssh root@192.168.50.XX  # Use the IP from Step 1.1
 ```
 
 ---
@@ -457,8 +457,8 @@ iface enp3s0 inet manual
 
 auto vmbr0
 iface vmbr0 inet static
-    address 192.168.1.110/24
-    gateway 192.168.1.1
+    address 192.168.50.110/24
+    gateway 192.168.50.1
     bridge-ports enp3s0
     bridge-stp off
     bridge-fd 0
@@ -507,7 +507,7 @@ If interface still won't come up:
 ip route show
 
 # Should show:
-# default via 192.168.1.1 dev vmbr0
+# default via 192.168.50.1 dev vmbr0
 
 # If wrong, edit config
 nano /etc/network/interfaces
@@ -515,8 +515,8 @@ nano /etc/network/interfaces
 # Fix gateway line in vmbr0 section:
 auto vmbr0
 iface vmbr0 inet static
-    address 192.168.1.110/24
-    gateway 192.168.1.1    # Change this to your router IP
+    address 192.168.50.110/24
+    gateway 192.168.50.1    # Change this to your router IP
     bridge-ports enp3s0
     bridge-stp off
     bridge-fd 0
@@ -526,7 +526,7 @@ ifreload -a
 
 # Verify
 ip route show
-ping -c 4 192.168.1.1
+ping -c 4 192.168.50.1
 ```
 
 ---
@@ -700,16 +700,16 @@ Once you get SSH working, verify everything is correct:
 
 ```bash
 # From Proxmox console
-ip addr show                    # Verify IP is 192.168.1.110
-ip route show                   # Verify gateway is 192.168.1.1
+ip addr show                    # Verify IP is 192.168.50.110
+ip route show                   # Verify gateway is 192.168.50.1
 systemctl status ssh            # Verify SSH is active (running)
 ss -tlnp | grep :22             # Verify SSH listening on 0.0.0.0:22
 iptables -L INPUT -v -n | grep :22  # Verify firewall allows SSH
 
 # From Mac
-ping -c 4 192.168.1.110         # Should succeed
-nc -zv 192.168.1.110 22         # Should show "succeeded"
-ssh root@192.168.1.110          # Should get password prompt
+ping -c 4 192.168.50.110         # Should succeed
+nc -zv 192.168.50.110 22         # Should show "succeeded"
+ssh root@192.168.50.110          # Should get password prompt
 ```
 
 ---
@@ -720,7 +720,7 @@ Once you successfully SSH into Proxmox, complete the post-installation configura
 
 ```bash
 # SSH from Mac
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 
 # Disable enterprise repository (requires subscription)
 sed -i 's/^deb/#deb/' /etc/apt/sources.list.d/pve-enterprise.list
@@ -738,7 +738,7 @@ apt full-upgrade -y
 apt install -y vim htop ncdu lsscsi smartmontools zfs-auto-snapshot
 
 # Update /etc/hosts for proper hostname resolution
-echo "192.168.1.110 legion-proxmox.local legion-proxmox" >> /etc/hosts
+echo "192.168.50.110 legion-proxmox.local legion-proxmox" >> /etc/hosts
 
 # Reboot to apply kernel updates
 reboot
@@ -919,7 +919,7 @@ iptables -L INPUT -v -n | grep :22
 echo ""
 
 echo "7. Gateway Connectivity:"
-ping -c 2 192.168.1.1 >/dev/null 2>&1 && echo "Gateway reachable" || echo "Gateway NOT reachable"
+ping -c 2 192.168.50.1 >/dev/null 2>&1 && echo "Gateway reachable" || echo "Gateway NOT reachable"
 echo ""
 
 echo "8. DNS Resolution:"

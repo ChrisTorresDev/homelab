@@ -221,9 +221,9 @@ Before installation, configure your Legion BIOS:
 7. **Network Configuration**:
    - Management Interface: Select your Ethernet adapter
    - Hostname: `legion-proxmox.local`
-   - IP Address: `192.168.1.110/24`
-   - Gateway: `192.168.1.1` (your router IP)
-   - DNS Server: `192.168.1.1` or `1.1.1.1`
+   - IP Address: `192.168.50.110/24`
+   - Gateway: `192.168.50.1` (your router IP)
+   - DNS Server: `192.168.50.1` or `1.1.1.1`
 
 8. **Confirm and Install**: Review settings and click "Install"
 
@@ -233,7 +233,7 @@ Before installation, configure your Legion BIOS:
 
 ### Post-Installation Configuration
 
-After reboot, Proxmox is accessible at: `https://192.168.1.110:8006`
+After reboot, Proxmox is accessible at: `https://192.168.50.110:8006`
 
 **From another computer**, open a web browser and log in:
 - Username: `root`
@@ -243,7 +243,7 @@ After reboot, Proxmox is accessible at: `https://192.168.1.110:8006`
 
 ```bash
 # SSH into Proxmox from your workstation:
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 
 # Update package repositories (disable enterprise repo)
 sed -i 's/^deb/#deb/' /etc/apt/sources.list.d/pve-enterprise.list
@@ -256,7 +256,7 @@ apt update && apt full-upgrade -y
 apt install -y vim htop ncdu lsscsi smartmontools zfs-auto-snapshot
 
 # Update /etc/hosts for proper hostname resolution
-echo "192.168.1.110 legion-proxmox.local legion-proxmox" >> /etc/hosts
+echo "192.168.50.110 legion-proxmox.local legion-proxmox" >> /etc/hosts
 
 # Reboot to apply kernel updates
 reboot
@@ -566,7 +566,7 @@ wget https://fedorapeople.org/groups/virt/virtio-win/direct-downloads/stable-vir
 # Upload your Windows 11 ISO
 # Option A: Use Proxmox web UI (Datacenter → Storage → local → ISO Images → Upload)
 # Option B: Use SCP from your workstation:
-#   scp Windows11.iso root@192.168.1.110:/var/lib/vz/template/iso/
+#   scp Windows11.iso root@192.168.50.110:/var/lib/vz/template/iso/
 
 # Verify files are present
 ls -lh /var/lib/vz/template/iso/
@@ -574,7 +574,7 @@ ls -lh /var/lib/vz/template/iso/
 
 ### Step 2: Create Windows 11 VM via Proxmox UI
 
-Open Proxmox web UI at `https://192.168.1.110:8006`
+Open Proxmox web UI at `https://192.168.50.110:8006`
 
 **Click "Create VM" and configure:**
 
@@ -636,7 +636,7 @@ Open Proxmox web UI at `https://192.168.1.110:8006`
 
 ```bash
 # SSH into Proxmox
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 
 # Find your GPU PCI address
 lspci | grep -i nvidia
@@ -745,7 +745,7 @@ qm start 100
 
 ```bash
 # SSH into Proxmox
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 
 # Enable the agent for VM 100
 qm set 100 --agent 1
@@ -812,7 +812,7 @@ For best gaming experience, pass through your USB controller:
 
 ```bash
 # SSH into Proxmox
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 
 # Find USB controllers
 lspci | grep -i usb
@@ -878,7 +878,7 @@ This LXC container will run Docker and essential services.
 
 ```bash
 # SSH into Proxmox
-ssh root@192.168.1.110
+ssh root@192.168.50.110
 
 # Update template list
 pveam update
@@ -904,8 +904,8 @@ pct create 200 local:vztmpl/debian-12-standard_12.2-1_amd64.tar.zst \
   --memory 6144 \
   --swap 2048 \
   --cores 4 \
-  --net0 name=eth0,bridge=vmbr0,ip=192.168.1.120/24,gw=192.168.1.1 \
-  --nameserver 192.168.1.1 \
+  --net0 name=eth0,bridge=vmbr0,ip=192.168.50.120/24,gw=192.168.50.1 \
+  --nameserver 192.168.50.1 \
   --features nesting=1 \
   --unprivileged 1 \
   --password
@@ -1034,7 +1034,7 @@ pct exec 200 -- docker ps
 ```
 
 **Access Portainer:**
-- Open browser: `https://192.168.1.120:9443`
+- Open browser: `https://192.168.50.120:9443`
 - Create admin account on first visit
 - You can now manage all Docker containers from this UI
 
