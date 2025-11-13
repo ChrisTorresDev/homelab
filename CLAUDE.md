@@ -52,11 +52,26 @@ The guide is tailored to a specific hardware configuration:
 
 ## Documentation Structure
 
-The main guide (`your_hardware_homelab.md`) is organized into phases:
+The repository contains multiple interconnected documentation files:
 
-- **Phase 1**: Legion Desktop conversion to Proxmox VE with GPU passthrough, ZFS pools, Windows 11 VM, and LXC containers
-- **Phase 2**: Dell Latitude 7520 setup as dedicated media node with Intel Quick Sync
-- **Phase 3**: T480s backup node with Proxmox Backup Server and ZFS replication
+### Main Guides
+- **`your_hardware_homelab.md`**: Comprehensive three-phase setup guide for the full homelab architecture
+  - Phase 1: Legion Desktop → Proxmox VE with GPU passthrough, ZFS pools, Windows 11 VM, and LXC containers
+  - Phase 2: Dell Latitude 7520 → dedicated media node with Intel Quick Sync
+  - Phase 3: T480s → backup node with Proxmox Backup Server and ZFS replication
+
+- **`phase1-simplified-build.md`**: Streamlined Phase 1 guide for starting immediately with limited hardware (single NVMe + HDDs, no external enclosures yet). Designed as a stepping stone to the full architecture.
+
+### Troubleshooting Guides
+- **`troubleshooting-ssh-connection.md`**: Step-by-step debugging for Proxmox SSH connectivity issues
+- **`proxmox_login_troubleshooting.md`**: Solutions for Proxmox web UI and console authentication problems
+- **`mac-network-setup.md`**: macOS-specific network configuration and connectivity troubleshooting
+
+### Documentation Workflow
+- Start with `phase1-simplified-build.md` if building with limited hardware immediately
+- Use `your_hardware_homelab.md` as the canonical reference for the complete architecture
+- Reference troubleshooting guides when specific issues arise during setup
+- Keep IP addressing scheme (192.168.1.110-140) consistent across all documentation
 
 ## Key Technical Decisions
 
@@ -96,6 +111,19 @@ The main guide (`your_hardware_homelab.md`) is organized into phases:
 
 **UPS Integration**: APC 1200VA UPS backs Legion + network gear + storage + T480s with apcupsd for graceful shutdowns.
 
+## Homelab-Guru Agent
+
+This repository includes a custom Claude Code agent (`.claude/agents/homelab-guru.md`) specialized in homelab infrastructure guidance. The agent should be consulted for:
+- Hardware selection and compatibility questions
+- Storage topology decisions (ZFS mirrors vs RAIDZ1/2/3)
+- GPU passthrough troubleshooting (IOMMU errors, VT-d configuration)
+- Transcoding hardware recommendations (Quick Sync vs NVENC)
+- Network architecture and 10GbE implementation
+- Power efficiency and UPS sizing
+- Virtualization platform best practices
+
+Use the homelab-guru agent when questions require deep homelab expertise beyond basic documentation updates.
+
 ## When Making Updates
 
 - Maintain the step-by-step instructional format with copy-paste ready commands
@@ -104,3 +132,5 @@ The main guide (`your_hardware_homelab.md`) is organized into phases:
 - Preserve the three-phase installation structure
 - Update power consumption estimates if hardware allocation changes
 - Maintain the balance between beginner-friendly explanations and technical depth
+- When adding new troubleshooting documentation, follow the pattern established in existing troubleshooting guides (problem statement, step-by-step diagnosis, root cause, solution)
+- Cross-reference related documentation (e.g., link troubleshooting guides from main setup guides where issues commonly occur)
