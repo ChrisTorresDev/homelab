@@ -6,10 +6,10 @@ This guide is designed for starting your Legion homelab build **immediately** wi
 
 **Current Hardware Constraints:**
 - Lenovo Legion Desktop (32GB RAM, Intel chipset with VT-d, GTX 1060 6GB)
-- 512GB NVMe SSD (currently running Windows 11)
-- 1TB HDD (internal SATA)
-- 3TB HDD (internal SATA)
-- **Only 1 open SATA port** on motherboard
+- 512GB NVMe SSD (~477GB actual capacity)
+- **2x 1TB HDDs** (Seagate ST1000DM003 + WD WD10EZEX)
+  - **Note**: Originally had 3TB HDD but removed due to broken SATA port
+- **Limited SATA ports** - no more internal expansion without PCIe card
 - **NO external enclosures** for at least a month
 - **NO additional SSDs or HDDs** yet
 
@@ -36,68 +36,80 @@ This guide is designed for starting your Legion homelab build **immediately** wi
 
 ## Storage Strategy Decision
 
-### Recommended Approach: Option C - Split Storage (Practical)
+### Recommended Approach: ZFS Mirror for Data Protection
 
-After evaluating all options, here's the **recommended storage topology** for your temporary setup:
+**IMPORTANT UPDATE**: You only have **2x 1TB HDDs** available (3TB drive removed due to broken SATA port).
+
+After evaluating all options, here's the **recommended storage topology** for your current hardware:
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │ Legion Desktop - Proxmox VE                             │
 ├─────────────────────────────────────────────────────────┤
 │ NVMe (512GB) - Single disk, no redundancy               │
-│   • Proxmox system (root)                               │
-│   • Windows 11 VM disk (~250GB)                         │
+│   • Proxmox system (root via local-lvm)                 │
+│   • Windows 11 VM disk (~240GB)                         │
 │   • Infrastructure LXC rootfs (~20GB)                   │
 │   • Docker volumes (~50GB)                              │
 │   • Free space buffer (~150GB)                          │
 ├─────────────────────────────────────────────────────────┤
-│ datapool (1TB + 3TB HDDs) - Striped, no redundancy      │
+│ bulkpool (2x 1TB HDDs) - MIRROR (RECOMMENDED)           │
 │   • Media files (movies, TV, music)                     │
-│   • Large game installs (optional Windows mount)        │
+│   • Nextcloud data                                      │
 │   • Docker volume backups                               │
 │   • Configuration backups                               │
-│   • Total usable: ~4TB                                  │
+│   • Total usable: ~1TB with single-drive protection     │
+│                                                          │
+│ Alternative: Striped (NOT RECOMMENDED)                  │
+│   • Total usable: ~2TB with ZERO redundancy             │
+│   • Losing either drive = lose ALL data                 │
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Why This Approach?
+### Why ZFS Mirror is Recommended?
 
 **Pros:**
-- **Fast VMs**: NVMe runs your Windows VM and containers at full speed
-- **Large capacity**: 4TB combined space for media and bulk storage
-- **Simple setup**: No complex RAID configurations to migrate later
-- **Easy migration**: Adding drives later is straightforward
-- **Gaming performance**: No compromises on Windows VM disk speed
+- **Data protection**: Survives single drive failure with zero data loss
+- **Better read performance**: ZFS reads from both drives simultaneously
+- **Peace of mind**: Your media library and configs are protected
+- **Safer testing**: Learn ZFS without risking catastrophic data loss
+- **Easy expansion**: When external drives arrive, migrate to RAIDZ1
 
 **Cons:**
-- **NO redundancy**: Single drive failures lose data on that drive
-- **Risk level**: MODERATE - losing NVMe means rebuilding VMs (backup critical data!)
-- **Striped pool risk**: Losing either HDD means losing entire datapool
+- **50% capacity**: Only 1TB usable instead of 2TB
+- **Slower writes**: Mirror writes to both drives (minimal impact for HDDs)
 
-**Why NOT the other options?**
+**Why Mirror Over Stripe?**
 
-❌ **Option A (Single NVMe only)**: You'd run out of space quickly with Windows + games
-❌ **Option B (NVMe + 1TB mirror)**: Wastes NVMe speed, only 512GB usable, can't use 3TB drive
-❌ **Option D (NVMe + separate HDDs)**: Better, but doesn't leverage ZFS features
+With only 2 drives, you have two choices:
+1. **Mirror (RECOMMENDED)**: 1TB usable, survives 1 drive failure
+2. **Stripe (RISKY)**: 2TB usable, losing EITHER drive loses ALL data
+
+Unless you absolutely need 2TB and can accept total data loss risk, **mirror is the safer choice** until external storage arrives.
 
 ### Risk Mitigation Strategy
 
-Since you have **no redundancy**, here's how to protect yourself:
+**With ZFS Mirror on HDDs**: You have protection against single drive failure for bulk data.
+**NVMe still has no redundancy**: Critical VMs and containers need backup protection.
+
+Here's how to protect yourself:
 
 1. **Critical Data Protection**:
    - Keep your important Windows files in Nextcloud (synced to cloud)
-   - Use Windows 11's File History to an external USB drive
-   - Export Proxmox configs weekly to external storage
+   - Use Windows 11's File History to an external USB drive (weekly)
+   - Export Proxmox configs weekly to bulkpool/backups
+   - ZFS snapshots protect against accidental deletion on bulkpool
 
 2. **Backup Workflow**:
-   - External USB drive for weekly VM backups (qcow2 exports)
-   - Configuration files in a Git repository
-   - Accept that media files can be re-downloaded if lost
+   - External USB drive for monthly VM backups (manual exports)
+   - Configuration files in a Git repository or Nextcloud
+   - Media files are protected by ZFS mirror (can survive 1 HDD failure)
+   - Critical documents synced to cloud storage (Backblaze, Google Drive, etc.)
 
 3. **When to Stop Adding Data**:
-   - Stop adding media when datapool reaches 80% full
-   - Keep 20% free on NVMe at all times
-   - Wait for enclosures before storing irreplaceable data
+   - Stop adding media when bulkpool reaches 80% full (~800GB used if mirrored)
+   - Keep 20% free on NVMe at all times (~100GB buffer)
+   - With 1TB mirrored, plan external storage when you hit 700-800GB used
 
 ---
 
@@ -289,61 +301,96 @@ lsblk -o NAME,SIZE,MODEL,SERIAL,TYPE
 ls -l /dev/disk/by-id/ | grep -v part | grep -E '(ata|nvme)'
 ```
 
-### Create the Data Pool (Striped 1TB + 3TB)
+### Create the Data Pool (Mirrored 2x 1TB)
 
-**IMPORTANT**: This is a **striped pool with NO redundancy**. If either drive fails, you lose ALL data in the pool.
+**RECOMMENDED**: This is a **mirrored pool with single-drive redundancy**. If one drive fails, your data survives.
 
 ```bash
 # First, verify your disk IDs
-DISK_1TB=$(ls -l /dev/disk/by-id/ | grep -E 'ata-WDC.*1T|ata-.*1000' | grep -v part | awk '{print $9}' | head -1)
-DISK_3TB=$(ls -l /dev/disk/by-id/ | grep -E 'ata-.*3T|ata-.*3000' | grep -v part | awk '{print $9}' | head -1)
+lsblk -o NAME,SIZE,MODEL,SERIAL
 
-echo "1TB disk: /dev/disk/by-id/${DISK_1TB}"
-echo "3TB disk: /dev/disk/by-id/${DISK_3TB}"
+# Expected output:
+# NAME        SIZE MODEL              SERIAL          TYPE
+# nvme0n1     477G KIOXIA...           ...             disk
+# sda         932G Seagate_ST1000DM003  ...            disk
+# sdb         932G WDC_WD10EZEX         ...            disk
+
+# List disk IDs (stable identifiers)
+ls -l /dev/disk/by-id/ | grep -v part | grep ata
+
+# Identify your two 1TB drives
+DISK_1TB_A=$(ls -l /dev/disk/by-id/ | grep 'ata-ST1000DM003' | grep -v part | awk '{print $9}' | head -1)
+DISK_1TB_B=$(ls -l /dev/disk/by-id/ | grep 'ata-WDC_WD10EZEX' | grep -v part | awk '{print $9}' | head -1)
+
+echo "Drive A (Seagate): /dev/disk/by-id/${DISK_1TB_A}"
+echo "Drive B (WD):      /dev/disk/by-id/${DISK_1TB_B}"
 
 # VERIFY THESE ARE CORRECT BEFORE PROCEEDING!
 # All data on these drives will be DESTROYED
 
-# Create the striped pool
-zpool create -f datapool \
-  /dev/disk/by-id/${DISK_1TB} \
-  /dev/disk/by-id/${DISK_3TB}
+echo ""
+echo "Creating ZFS MIRROR (recommended for data protection)"
+echo "Usable capacity: ~1TB with single-drive fault tolerance"
+echo "Press Ctrl+C to cancel, or Enter to continue..."
+read
+
+# Create the mirrored pool (RECOMMENDED)
+zpool create -f bulkpool mirror \
+  /dev/disk/by-id/${DISK_1TB_A} \
+  /dev/disk/by-id/${DISK_1TB_B}
 
 # Verify pool creation
-zpool status datapool
+zpool status bulkpool
 
 # You should see:
-#   pool: datapool
+#   pool: bulkpool
 #   state: ONLINE
 #   config:
 #     NAME                    STATE
-#     datapool                ONLINE
-#       ata-WDC_WD10EZEX...   ONLINE
-#       ata-Seagate_ST3000... ONLINE
+#     bulkpool                ONLINE
+#       mirror-0              ONLINE
+#         ata-ST1000DM003...  ONLINE
+#         ata-WDC_WD10EZEX... ONLINE
+```
+
+**Alternative: Striped Pool (NOT RECOMMENDED)**
+```bash
+# Only if you need 2TB and accept ZERO fault tolerance
+# WARNING: Losing EITHER drive means losing ALL data!
+zpool create -f bulkpool \
+  /dev/disk/by-id/${DISK_1TB_A} \
+  /dev/disk/by-id/${DISK_1TB_B}
+
+# This gives ~2TB but no redundancy
 ```
 
 ### Create ZFS Datasets
 
 ```bash
 # Create organized datasets for different types of data
-zfs create datapool/media        # Movies, TV, Music
-zfs create datapool/backups      # Configuration backups, VM exports
-zfs create datapool/docker       # Docker volume backups
-zfs create datapool/games        # Large game installs (optional)
+zfs create bulkpool/media        # Movies, TV, Music
+zfs create bulkpool/cloud        # Nextcloud data
+zfs create bulkpool/backups      # Configuration backups, VM exports
+zfs create bulkpool/docker       # Docker volume backups (optional)
 
 # Set optimal properties for media files
-zfs set compression=lz4 datapool/media
-zfs set recordsize=1M datapool/media
-zfs set atime=off datapool/media
+zfs set compression=lz4 bulkpool/media
+zfs set recordsize=1M bulkpool/media
+zfs set atime=off bulkpool/media
+
+# Set properties for cloud storage
+zfs set compression=lz4 bulkpool/cloud
+zfs set recordsize=128k bulkpool/cloud
 
 # Set properties for backups
-zfs set compression=lz4 datapool/backups
-zfs set recordsize=128k datapool/backups
+zfs set compression=lz4 bulkpool/backups
+zfs set recordsize=128k bulkpool/backups
 
 # Enable automatic snapshots for critical data
-zfs set com.sun:auto-snapshot=true datapool/backups
-zfs set com.sun:auto-snapshot=true datapool/docker
-zfs set com.sun:auto-snapshot=false datapool/media  # Don't snapshot media
+zfs set com.sun:auto-snapshot=true bulkpool/cloud
+zfs set com.sun:auto-snapshot=true bulkpool/backups
+zfs set com.sun:auto-snapshot=true bulkpool/docker
+zfs set com.sun:auto-snapshot=false bulkpool/media  # Don't snapshot media
 
 # Verify your datasets
 zfs list
@@ -351,16 +398,29 @@ zfs list
 
 ### Expected Output
 
+**If you created a MIRROR (recommended):**
 ```
 NAME                 USED  AVAIL     REFER  MOUNTPOINT
-datapool            1.12M  3.54T       96K  /datapool
-datapool/backups      96K  3.54T       96K  /datapool/backups
-datapool/docker       96K  3.54T       96K  /datapool/docker
-datapool/games        96K  3.54T       96K  /datapool/games
-datapool/media        96K  3.54T       96K  /datapool/media
+bulkpool            1.12M   928G       96K  /bulkpool
+bulkpool/backups      96K   928G       96K  /bulkpool/backups
+bulkpool/cloud        96K   928G       96K  /bulkpool/cloud
+bulkpool/docker       96K   928G       96K  /bulkpool/docker
+bulkpool/media        96K   928G       96K  /bulkpool/media
 ```
 
-You have **~4TB total usable space** (1TB + 3TB combined).
+You have **~1TB total usable space** with single-drive protection.
+
+**If you created a STRIPE (not recommended):**
+```
+NAME                 USED  AVAIL     REFER  MOUNTPOINT
+bulkpool            1.12M  1.81T       96K  /bulkpool
+bulkpool/backups      96K  1.81T       96K  /bulkpool/backups
+bulkpool/cloud        96K  1.81T       96K  /bulkpool/cloud
+bulkpool/docker       96K  1.81T       96K  /bulkpool/docker
+bulkpool/media        96K  1.81T       96K  /bulkpool/media
+```
+
+You have **~2TB total usable space** with zero redundancy.
 
 ### Configure Automatic Snapshots
 
@@ -1116,37 +1176,49 @@ Available:         232GB
 - Effective usable space: ~130GB after VM/LXC
 - Use for: Fast Docker volumes, test VMs, databases
 
-**Datapool HDDs (4TB striped):**
+**Bulkpool HDDs (2x 1TB mirrored - recommended):**
 ```
-Total raw capacity:  4TB (1TB + 3TB)
+Total raw capacity:  2TB (2x 1TB mirror)
 ZFS overhead:       ~3%
-Available:         ~3.88TB
+Mirroring overhead: 50% (data written twice)
+Available:         ~1TB usable
 ```
 
 **Recommendations:**
-- Keep 20% free (800GB) at all times
-- Effective usable: ~3.0TB before waiting for enclosures
-- Use for: Media, backups, large Docker volumes
+- Keep 20% free (200GB) at all times for ZFS performance
+- Effective usable: ~800GB before needing external storage
+- Use for: Media, Nextcloud data, backups, large Docker volumes
+- Protected: Can survive single drive failure
+
+**Alternative: Bulkpool HDDs (2x 1TB striped - not recommended):**
+```
+Total raw capacity:  2TB (2x 1TB striped)
+ZFS overhead:       ~3%
+Available:         ~1.94TB usable
+```
+
+**Note**: Striping provides 2x capacity but ZERO fault tolerance. Losing either drive destroys ALL data.
 
 ### When to STOP Adding Data
 
 **Critical thresholds:**
 
-1. **NVMe at 80% full (410GB used)**:
+1. **NVMe at 80% full (380GB used)**:
    - Stop creating new VMs
-   - Move Docker volumes to datapool if possible
+   - Move Docker volumes to bulkpool if possible
    - Consider removing old snapshots
+   - Clean up Windows temp files
 
-2. **Datapool at 80% full (3.1TB used)**:
+2. **Bulkpool at 80% full (800GB used for mirror, 1.5TB for stripe)**:
    - **STOP adding media files**
    - Don't add more Docker volumes
    - Wait for external enclosures to arrive
-   - Start planning migration to full setup
+   - Start planning migration to full RAIDZ1 setup
 
 3. **Any drive shows SMART errors**:
-   - **IMMEDIATELY** backup critical data
+   - **IMMEDIATELY** backup critical data to external USB
    - Order replacement drive
-   - Plan emergency migration
+   - Plan emergency migration or restoration
 
 ### Backup Strategy for Temporary Setup
 

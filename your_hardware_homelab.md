@@ -20,11 +20,12 @@
 ### Desktop (Primary Hypervisor)
 - **1x Lenovo Legion Desktop PC**
   - 32GB RAM
-  - 512GB NVMe SSD
-  - 1TB HDD + 3TB HDD
+  - 512GB NVMe SSD (currently ~477GB actual)
+  - **2x 1TB HDDs** (Seagate ST1000DM003 + WD WD10EZEX)
+    - **Note**: Originally had 3TB HDD but removed due to broken SATA port
   - **NVIDIA GTX 1060 6GB** (GPU passthrough target)
   - Intel chipset with VT-d/IOMMU support
-  - 2x SATA bays + USB 3.2 ports for external enclosures
+  - Limited SATA ports - recommend PCIe SATA expansion card or USB 3.2 enclosures for additional drives
 
 This box now runs **Proxmox VE** 24/7, hosts all ZFS pools, and passes the GTX 1060 directly to the Windows 11 gaming VM so you keep near-native performance.
 
@@ -34,24 +35,38 @@ This box now runs **Proxmox VE** 24/7, hosts all ZFS pools, and passes the GTX 1
 - **1x Dell Latitude 7520 (11th gen Intel with Iris Xe)** – ideal Jellyfin/Tdarr node thanks to the latest Intel Quick Sync engine (H.264/H.265 4K hardware transcodes).
 
 ### Storage Drives
-- **4x 1TB SATA SSDs (spares)**
-  - 2 drives → `fastpool` mirrored ZFS for VM/LXC disks on the Legion.
-  - 2 drives → `backup-ssd` mirrored ZFS inside the T480s backup node.
-- **3x 1TB HDDs (external/spare)**
-  - Combine with the internal 1TB HDD to create a 4-disk RAIDZ1 `bulkpool` for media + Nextcloud data.
-- **1x 3TB HDD**
-  - Dedicated cold-backup disk for `zfs send` archives that you can rotate off-site.
 
-**Planned ZFS Pools**
+**Current Internal Storage:**
+- **1x 512GB NVMe SSD** - Running Proxmox VE with `rpool` (ext4 filesystem)
+- **2x 1TB SATA HDDs** - Available for `bulkpool` (mirror recommended for reliability)
 
-| Pool | Disks | Purpose |
-|------|-------|---------|
-| `rpool` | 2x 1TB SSD (mirror) | VM disks, Docker volumes, databases (Proxmox system pool) |
-| `bulkpool` | 4x 1TB HDD (RAIDZ1) | Media, Nextcloud data, general files |
-| `backup-ssd` | 2x 1TB SSD mirror on T480s | Remote replica target for snapshots |
-| `archive` | 3TB HDD (single) | Weekly offline snapshots; kept unplugged when idle |
+**Planned External Storage (when enclosures arrive):**
+- **4x 1TB SATA SSDs (not yet connected)**
+  - 2 drives → `fastpool` mirrored ZFS for VM/LXC disks on the Legion
+  - 2 drives → `backup-ssd` mirrored ZFS inside the T480s backup node
+- **3-4x 1TB HDDs (not yet connected)**
+  - Combine with or replace internal HDDs to create a 4-disk RAIDZ1 `bulkpool` for media + Nextcloud data
+- **1x 3TB HDD (offline)**
+  - Currently not connected due to broken SATA port
+  - Can be used later as cold-backup disk for `zfs send` archives via USB enclosure
 
-**Note:** The Proxmox installer automatically creates `rpool` on the SSD mirror. In architectural diagrams, this may be referred to as "fastpool" conceptually.
+**Current ZFS Pools (Phase 1 - Limited Hardware)**
+
+| Pool | Disks | Purpose | Status |
+|------|-------|---------|--------|
+| `rpool` | NVMe single disk | Proxmox system, VM disks on local-lvm | ✅ Current |
+| `bulkpool` | 2x 1TB HDD (mirror) | Media, Nextcloud data, general files | ✅ Recommended |
+
+**Planned ZFS Pools (Full Setup - When External Storage Arrives)**
+
+| Pool | Disks | Purpose | Status |
+|------|-------|---------|--------|
+| `fastpool` | 2x 1TB SSD (mirror) | VM disks, Docker volumes, databases | ⏳ Pending external SSDs |
+| `bulkpool` | 4x 1TB HDD (RAIDZ1) | Media, Nextcloud data, general files | ⏳ Pending external HDDs |
+| `backup-ssd` | 2x 1TB SSD mirror on T480s | Remote replica target for snapshots | ⏳ Phase 3 |
+| `archive` | 3TB HDD (single) via USB | Weekly offline snapshots; kept unplugged when idle | ⏳ Deferred (broken SATA port) |
+
+**Note:** With only 2x 1TB HDDs available internally, using a **ZFS mirror is strongly recommended** over striping for data protection. This provides 1TB usable capacity with single-drive fault tolerance, which is safer than 2TB striped with no redundancy.
 
 ### Power Protection
 - **APC 1200VA / 720W UPS**
@@ -174,25 +189,42 @@ Run everything on the laptops via Proxmox/Ubuntu nodes. Power efficient yet limi
 
 ### Storage Layout (ZFS)
 
-**Note on pool naming:** The Proxmox installer creates a pool named `rpool` by default on the SSD mirror. In this guide, we use `rpool` for the fast SSD storage (conceptually referred to as "fastpool" in diagrams), and `bulkpool` for the HDD RAIDZ1 array.
+**Current Phase 1 Setup (Limited Hardware):**
 
 **Primary Storage (Legion):**
-- `rpool` (SSD mirror - fast storage):
-  - `rpool/vmdata` – VM disks (Windows, utility VMs)
-  - `rpool/infra` – Docker volumes + configs
-- `bulkpool` (HDD RAIDZ1 - bulk storage):
+- **NVMe (local-lvm)** - Proxmox default storage:
+  - VM disks (Windows 11, utility VMs)
+  - Container rootfs volumes
+  - ~400GB usable after Proxmox overhead
+- **bulkpool** (2x 1TB HDD mirror - recommended):
+  - `bulkpool/media` – Movies, TV, Music, Photos (NFS export to Dell)
+  - `bulkpool/cloud` – Nextcloud primary storage
+  - `bulkpool/backups` – Configuration backups, VM exports
+  - ~1TB usable with single-drive fault tolerance
+
+**Planned Full Setup (When External Storage Arrives):**
+
+**Primary Storage (Legion):**
+- `fastpool` (2x 1TB SSD mirror - fast storage):
+  - `fastpool/vmdata` – VM disks (Windows, utility VMs)
+  - `fastpool/infra` – Docker volumes + configs
+  - ~1TB usable, high-performance storage
+- `bulkpool` (4x 1TB HDD RAIDZ1 - bulk storage):
   - `bulkpool/media` – Movies, TV, Music, Photos (NFS export to Dell)
   - `bulkpool/cloud` – Nextcloud primary storage
   - `bulkpool/backups` – Staging area for Borg/Restic archives
+  - ~3TB usable with single-drive fault tolerance
 
-**Backup Storage (T480s):**
-- `backup-ssd` (SSD mirror on T480s):
-  - `backup-ssd/rpool/vmdata` – receives replicas of `rpool/vmdata`
+**Backup Storage (T480s - Phase 3):**
+- `backup-ssd` (2x 1TB SSD mirror on T480s):
+  - `backup-ssd/fastpool/vmdata` – receives replicas of `fastpool/vmdata`
   - `backup-ssd/bulkpool/media` – receives replicas of `bulkpool/media`
   - `backup-ssd/bulkpool/cloud` – receives replicas of `bulkpool/cloud`
 
-**Cold Storage:**
-- `archive` (3TB HDD - offline):
+**Cold Storage (Deferred):**
+- `archive` (3TB HDD - offline via USB):
+  - Currently not connected due to broken SATA port
+  - Will be used via USB enclosure when available
   - Full weekly snapshots of all pools
   - Unplugged and stored off-site between backups
 
@@ -258,45 +290,92 @@ apt update && apt full-upgrade
 6. Update `/etc/hosts` to map `192.168.50.110 legion-proxmox`, then reboot.
 
 #### Step 1.2: Attach Remaining Drives & Build Pools
+
+**IMPORTANT: Current Hardware Configuration**
+- You have **only 2x 1TB HDDs** available (not 4 drives as originally planned)
+- The 3TB drive is offline due to broken SATA port
+- External enclosures with additional drives have not arrived yet
+
+**Recommended Configuration: ZFS Mirror (Data Protection)**
 ```bash
 # List all disks to identify your drives
 lsblk -o NAME,SIZE,MODEL,SERIAL
 
-# List disk IDs (these are stable across reboots)
-ls -l /dev/disk/by-id/ | grep -v part
+# Expected output with your current hardware:
+# NAME        SIZE MODEL              SERIAL          TYPE
+# nvme0n1     477G KIOXIA...           ...             disk
+# ├─nvme0n1p1   1G                                     part  # EFI
+# ├─nvme0n1p2   1G                                     part  # BIOS
+# └─nvme0n1p3 475G                                     part  # Root + LVM
+# sda         932G Seagate_ST1000DM003  ...            disk
+# sdb         932G WDC_WD10EZEX         ...            disk
 
-# Create HDD RAIDZ1 pool for bulk storage
+# List disk IDs (these are stable across reboots)
+ls -l /dev/disk/by-id/ | grep -v part | grep -E '(ata|nvme)'
+
+# Create HDD MIRROR pool for bulk storage with redundancy
 # IMPORTANT: Replace these IDs with your actual disk IDs from the command above
-disk_ids=(
-  /dev/disk/by-id/ata-ST1000_device1
-  /dev/disk/by-id/ata-ST1000_device2
-  /dev/disk/by-id/ata-ST1000_device3
-  /dev/disk/by-id/ata-ST1000_internal
-)
-zpool create -f bulkpool raidz1 ${disk_ids[@]}
+DISK_1TB_A="/dev/disk/by-id/ata-ST1000DM003-XXXXX"  # Replace with your Seagate ID
+DISK_1TB_B="/dev/disk/by-id/ata-WDC_WD10EZEX-XXXXX" # Replace with your WD ID
+
+echo "Creating ZFS mirror with:"
+echo "  Drive 1: ${DISK_1TB_A}"
+echo "  Drive 2: ${DISK_1TB_B}"
+echo ""
+echo "This will provide ~1TB usable with single-drive fault tolerance."
+echo "Press Ctrl+C to cancel, or Enter to continue..."
+read
+
+# Create mirrored pool (RECOMMENDED for data safety)
+zpool create -f bulkpool mirror ${DISK_1TB_A} ${DISK_1TB_B}
 
 # Verify pool creation
 zpool status bulkpool
+
+# Should show:
+#   pool: bulkpool
+#   state: ONLINE
+#   config:
+#     NAME                    STATE
+#     bulkpool                ONLINE
+#       mirror-0              ONLINE
+#         ata-ST1000DM003...  ONLINE
+#         ata-WDC_WD10EZEX... ONLINE
 
 # Create datasets on bulkpool for media and files
 zfs create bulkpool/media
 zfs create bulkpool/cloud
 zfs create bulkpool/backups
 
-# The SSD mirror pool (rpool) already exists from installer
-# Create datasets on rpool for VM disks and Docker volumes
-zfs create rpool/vmdata
-zfs create rpool/infra
+# Proxmox already uses local-lvm on NVMe for VM storage
+# No need to create rpool/vmdata since we're using the default local-lvm
 
 # Verify all pools
 zpool list
 zfs list
 ```
 
+**Alternative: Striped Pool (NOT RECOMMENDED - No Redundancy)**
+```bash
+# Only use this if you absolutely need 2TB capacity and accept the risk
+# If EITHER drive fails, you lose ALL data in the pool!
+zpool create -f bulkpool ${DISK_1TB_A} ${DISK_1TB_B}
+
+# This gives ~2TB usable but ZERO fault tolerance
+```
+
+**Why Mirror is Recommended:**
+- ✅ Survives single drive failure with zero data loss
+- ✅ Better random read performance (ZFS reads from both drives)
+- ✅ Safer for important data (media can be re-downloaded, but configs cannot)
+- ❌ Only 1TB usable instead of 2TB (50% capacity overhead)
+- ✅ Worth the tradeoff until external drives arrive for RAIDZ1
+
 **Important Notes:**
-- Label any USB enclosures physically so you know which drives are which.
-- USB-connected drives should use UASP-capable enclosures for best performance.
-- The `/dev/disk/by-id` paths ensure ZFS can find drives even if `/dev/sdX` names change.
+- The NVMe already hosts Proxmox and VMs via local-lvm (no ZFS needed there yet)
+- When external enclosures arrive, you can migrate to the full RAIDZ1 setup
+- Label drives physically so you know which is which
+- The `/dev/disk/by-id` paths ensure ZFS can find drives even if `/dev/sdX` names change
 
 **ZFS Tuning for VM Workloads:**
 ```bash
@@ -1297,12 +1376,18 @@ ssh root@192.168.50.140 "zfs list -t snapshot backup-ssd/rpool/vmdata | tail -5"
 
 ### Weekly Tasks - Archive Disk Backup
 
-Create the archive disk backup script:
+**IMPORTANT: Archive backups are currently DEFERRED**
+
+The 3TB archive drive is not connected due to a broken SATA port on the Legion motherboard. This functionality will be available once you:
+1. Acquire a USB 3.0 SATA enclosure for the 3TB drive, OR
+2. Install a PCIe SATA expansion card to add more SATA ports
+
+**When the 3TB drive is reconnected via USB enclosure**, create the archive disk backup script:
 ```bash
 cat > /usr/local/sbin/zfs-archive.sh <<'EOF'
 #!/bin/bash
 # Weekly offline archive backup script
-# Connect the 3TB archive disk before running
+# Connect the 3TB archive disk via USB before running
 
 set -euo pipefail
 
@@ -1323,7 +1408,7 @@ if ! zpool list "$ARCHIVE_POOL" &>/dev/null; then
         log "Importing archive pool..."
         zpool import "$ARCHIVE_POOL"
     else
-        log "ERROR: Archive pool not found. Connect the 3TB drive and run: zpool import $ARCHIVE_POOL"
+        log "ERROR: Archive pool not found. Connect the 3TB USB drive and run: zpool import $ARCHIVE_POOL"
         exit 1
     fi
 fi
@@ -1332,7 +1417,8 @@ log "Archive pool status:"
 zpool status "$ARCHIVE_POOL" | tee -a "$LOG_FILE"
 
 # Create full recursive snapshots and send to archive
-for pool in rpool bulkpool; do
+# NOTE: Only backing up bulkpool for now (VMs on local-lvm don't use ZFS yet)
+for pool in bulkpool; do
     log "Archiving $pool..."
 
     SNAP="${pool}@archive-${DATE}"
@@ -1354,7 +1440,7 @@ done
 # Cleanup old archive snapshots (keep last 4 weekly backups)
 log "Cleaning up old archive snapshots..."
 CLEANUP_DATE=$(date -d '28 days ago' +%Y%m%d 2>/dev/null || date -v-28d +%Y%m%d)
-for pool in rpool bulkpool; do
+for pool in bulkpool; do
     zfs list -H -t snapshot -o name "${ARCHIVE_POOL}/${pool}" 2>/dev/null | \
         grep "@archive-" | while read snap; do
         snap_date=$(echo "$snap" | sed -n 's/.*@archive-\([0-9]\{8\}\)/\1/p')
@@ -1377,9 +1463,9 @@ EOF
 chmod +x /usr/local/sbin/zfs-archive.sh
 ```
 
-**To use the archive backup:**
+**To use the archive backup (when available):**
 ```bash
-# 1. Connect the 3TB archive drive
+# 1. Connect the 3TB archive drive via USB enclosure
 # 2. Run the script
 /usr/local/sbin/zfs-archive.sh
 
@@ -1391,6 +1477,12 @@ zpool export archive
 
 # 5. Disconnect the drive and store it off-site
 ```
+
+**Temporary Alternative Backup Strategy:**
+Until the archive drive is available, back up critical data to:
+- External USB drive (manual weekly exports)
+- Cloud storage (rclone to Backblaze B2, Google Drive, etc.)
+- Network share on another machine
 
 ### Patch Cadence
 - **Proxmox host**: Monthly security updates

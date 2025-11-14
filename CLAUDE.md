@@ -9,11 +9,12 @@ This is a homelab documentation repository containing a comprehensive setup guid
 ## Hardware Context
 
 The guide is tailored to a specific hardware configuration:
-- **Lenovo Legion Desktop** (32GB RAM, GTX 1060 6GB, 512GB NVMe + 1TB + 3TB HDDs) - Gaming PC running Proxmox VE 24/7
+- **Lenovo Legion Desktop** (32GB RAM, GTX 1060 6GB, 512GB NVMe + 2x 1TB HDDs) - Gaming PC running Proxmox VE 24/7
+  - **Note**: Originally had 3TB HDD but removed due to broken SATA port
 - **2x Lenovo T480s laptops** - One for Proxmox Backup Server (backup/observability node), one spare
 - **2x ThinkPad X1 laptops** - Lab/dev boxes for testing
 - **1x Dell Latitude 7520** - Dedicated Jellyfin/Tdarr media node with Intel Quick Sync
-- **External storage**: 4x 1TB SSDs (2 for fastpool mirror on Legion, 2 for backup-ssd mirror on T480s) + 4x 1TB HDDs (RAIDZ1 bulkpool) + 1x 3TB HDD (cold backup archive)
+- **External storage** (planned): 4x 1TB SSDs (2 for fastpool mirror on Legion, 2 for backup-ssd mirror on T480s) + 4x 1TB HDDs (RAIDZ1 bulkpool expansion) + 1x 3TB HDD (cold backup archive - currently offline)
 
 ## Architecture Overview
 
@@ -36,10 +37,12 @@ The guide is tailored to a specific hardware configuration:
 - **Proxmox Backup Server**: Automated VM/CT backups with retention
 
 ### Storage Architecture (ZFS)
-- **fastpool** (2x 1TB SSD mirror on Legion): VM disks, Docker volumes, databases
-- **bulkpool** (4x 1TB HDD RAIDZ1 on Legion): Media, Nextcloud data, general files
-- **backup-ssd** (2x 1TB SSD mirror on T480s): Receives ZFS send replicas
-- **archive** (3TB HDD): Weekly offline snapshots, unplugged when idle
+- **rpool** (NVMe single disk on Legion): Proxmox system, VM disks - **Current Phase**
+- **bulkpool** (2x 1TB HDD mirror on Legion): Media, Nextcloud data, general files - **Current Phase**
+- **fastpool** (2x 1TB SSD mirror on Legion): VM disks, Docker volumes, databases - **Planned with external SSDs**
+- **bulkpool-expanded** (4x 1TB HDD RAIDZ1 on Legion): Expanded media storage - **Planned with external HDDs**
+- **backup-ssd** (2x 1TB SSD mirror on T480s): Receives ZFS send replicas - **Planned Phase 3**
+- **archive** (3TB HDD): Weekly offline snapshots, unplugged when idle - **Deferred until 3TB drive reconnected**
 
 ### IP Address Scheme
 ```
@@ -99,11 +102,16 @@ The repository contains multiple interconnected documentation files:
 - No port forwarding required
 
 ### Backup & Redundancy
-1. **Local protection**: ZFS mirrors + RAIDZ1 handle single-disk failures
+**Current Phase (Limited Hardware):**
+1. **Local protection**: ZFS mirror (2x 1TB HDD bulkpool) handles single-disk failure
 2. **Snapshots**: Hourly (24h) + daily (14d) + weekly (8w) via zfs-auto-snapshot
-3. **Replication**: ZFS send jobs to T480s backup node over SSH
-4. **Cold copies**: Weekly snapshots to 3TB archive disk (offline storage)
-5. **PBS backups**: Nightly Proxmox Backup Server jobs for VMs/containers
+3. **Critical data**: Manual exports to external USB drive recommended until external storage arrives
+
+**Planned Phase (Full Setup):**
+1. **Local protection**: ZFS mirrors + RAIDZ1 handle single-disk failures
+2. **Replication**: ZFS send jobs to T480s backup node over SSH
+3. **Cold copies**: Weekly snapshots to 3TB archive disk (offline storage) - deferred
+4. **PBS backups**: Nightly Proxmox Backup Server jobs for VMs/containers
 
 ## Important Safety Notes
 
