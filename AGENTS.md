@@ -58,6 +58,12 @@ The main guide (`your_hardware_homelab.md`) is organized into phases:
 - **Phase 2**: Dell Latitude 7520 setup as dedicated media node with Intel Quick Sync
 - **Phase 3**: T480s backup node with Proxmox Backup Server and ZFS replication
 
+### Supporting Playbooks
+- `phase1-simplified-build.md`: Interim plan for launching Proxmox immediately with the currently-installed NVMe and 2x1TB HDDs while SATA ports and enclosures are limited. Keep migration paths back to the full Phase 1 design explicit whenever equipment constraints are mentioned.
+- `mac-network-setup.md`: Walkthrough for getting a Mac on the 192.168.50.0/24 network (SSID choices, router DHCP ranges, verification commands). Preserve the diagnosis-first style and keep all IP references aligned with the main scheme.
+- `proxmox_login_troubleshooting.md`: Console login recovery guide covering keyboard layout checks and the full single-user-mode password reset process. Any additions should keep the quick-check → recovery-mode order intact.
+- `troubleshooting-ssh-connection.md`: SSH timeout triage from the Proxmox console (interface/IP verification, `/etc/network/interfaces`, gateway tests). Maintain the decision-tree structure so readers can branch quickly based on what they observe.
+
 ## Key Technical Decisions
 
 ### Storage Strategy
@@ -104,3 +110,5 @@ The main guide (`your_hardware_homelab.md`) is organized into phases:
 - Preserve the three-phase installation structure
 - Update power consumption estimates if hardware allocation changes
 - Maintain the balance between beginner-friendly explanations and technical depth
+- Keep troubleshooting guides actionable: start with non-destructive checks (keyboard layout, interface status, WiFi SSID) before escalation steps like password resets or reconfiguring routers.
+- When documenting temporary hardware limitations (e.g., only 2x1TB HDDs, missing enclosures), explicitly call out how to transition back to the desired ZFS topology once the full parts list is available.

@@ -4,7 +4,9 @@
       "WebSearch",
       "Bash(/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport -I)",
       "Bash(system_profiler:*)",
-      "Bash(networksetup:*)"
+      "Bash(networksetup:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []

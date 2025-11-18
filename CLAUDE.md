@@ -132,6 +132,53 @@ This repository includes a custom Claude Code agent (`.claude/agents/homelab-gur
 
 Use the homelab-guru agent when questions require deep homelab expertise beyond basic documentation updates.
 
+## Current Build Progress
+
+**Last Updated**: 2025-01-17
+
+### Phase 1: Legion Desktop Setup (IN PROGRESS)
+
+**Completed Steps:**
+- ✅ **Proxmox VE 8 Installation**: Successfully installed on Legion Desktop (192.168.50.110)
+  - BIOS configured: VT-x, VT-d, Above 4G Decoding enabled
+  - Network configured with static IP
+  - Post-installation updates completed
+- ✅ **ZFS Pool Configuration**: Created `bulkpool` with 2x 1TB HDD mirror
+  - Single-drive fault tolerance active
+  - Datasets created: media, cloud, backups, docker
+  - Auto-snapshots configured via zfs-auto-snapshot
+  - SMART monitoring enabled
+- ✅ **GPU Passthrough Setup**: GTX 1060 configured for VM passthrough
+  - IOMMU enabled and verified
+  - VFIO modules configured
+  - GPU PCI IDs bound to vfio-pci driver (10de:1c03,10de:10f1)
+  - GPU isolated from host successfully
+- ✅ **VM 100 - Windows 11 Gaming**: Installation in progress
+  - VM created: 240GB disk, 16GB RAM, 6 cores, UEFI+TPM
+  - VirtIO SCSI driver loaded during installation
+  - Windows 11 installing (step 1/3 when last checked)
+  - GPU passthrough temporarily removed for installation (will re-add after VirtIO drivers)
+
+**Next Steps:**
+1. Complete Windows 11 OOBE setup
+2. Install VirtIO drivers (virtio-win-gt-x64.exe)
+3. Re-add GPU passthrough to VM 100
+4. Install NVIDIA drivers in Windows
+5. Test gaming performance
+6. Create CT 200 - Infrastructure LXC container
+7. Install Docker and deploy Portainer
+
+**Current Guide**: Following `phase1-simplified-build.md` - currently at Step 5 (Install VirtIO Drivers)
+
+**Known Issues Resolved:**
+- VNC console access when GPU passthrough enabled (solved by temporarily removing GPU for installation)
+- Windows installer not detecting disk (solved by loading VirtIO SCSI driver from virtio-win.iso)
+- Network driver prompt during OOBE (bypassed or loaded NetKVM driver)
+
+### Phase 2: Dell Latitude 7520 Media Node (NOT STARTED)
+
+### Phase 3: T480s Backup Server (NOT STARTED)
+
 ## When Making Updates
 
 - Maintain the step-by-step instructional format with copy-paste ready commands
