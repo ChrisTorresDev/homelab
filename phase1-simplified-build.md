@@ -1004,14 +1004,14 @@ EOF
 ### Step 4: Add ZFS Mount Point for Docker Data
 
 ```bash
-# Create dataset on datapool for Docker volumes
-zfs create datapool/docker-volumes
+# Create dataset on bulkpool for Docker volumes
+zfs create bulkpool/docker-volumes
 
 # Add mount point to container config
-echo "mp0: /datapool/docker-volumes,mp=/srv/docker" >> /etc/pve/lxc/200.conf
+echo "mp0: /bulkpool/docker-volumes,mp=/srv/docker" >> /etc/pve/lxc/200.conf
 
 # Set permissions (containers use UID 100000 in unprivileged mode)
-chown -R 100000:100000 /datapool/docker-volumes
+chown -R 100000:100000 /bulkpool/docker-volumes
 ```
 
 ### Step 5: Start Container and Install Docker
@@ -1233,8 +1233,8 @@ tar -czf proxmox-configs-$(date +%Y%m%d).tar.gz \
     /etc/network/interfaces \
     /etc/hosts
 
-# Copy to datapool
-cp proxmox-configs-*.tar.gz /datapool/backups/
+# Copy to bulkpool
+cp proxmox-configs-*.tar.gz /bulkpool/backups/
 
 # Backup container configs
 pct exec 200 -- tar -czf /srv/docker/backup-$(date +%Y%m%d).tar.gz /srv/docker
@@ -1251,8 +1251,8 @@ qm start 100
 2. **Snapshot critical ZFS datasets**:
 ```bash
 # Manual snapshot before major changes
-zfs snapshot datapool/docker@before-update
-zfs snapshot datapool/backups@weekly-$(date +%Y%m%d)
+zfs snapshot bulkpool/docker@before-update
+zfs snapshot bulkpool/backups@weekly-$(date +%Y%m%d)
 ```
 
 3. **Sync to cloud** (if you have Backblaze/Dropbox/etc):
@@ -1300,7 +1300,7 @@ NVMe (512GB) - single             rpool (2x 1TB SSD mirror)
   • Windows VM                      • VM disks
   • Infra LXC                       • Docker volumes
 
-datapool (1TB + 3TB) - striped    bulkpool (4x 1TB HDD RAIDZ1)
+bulkpool (2x 1TB) - mirror        bulkpool (4x 1TB HDD RAIDZ1)
   • Media files                     • Media library
   • Backups                         • Nextcloud data
   • Docker volumes                  • Large files
@@ -1395,7 +1395,7 @@ zfs list -o name,used,avail,refer,mountpoint
 qm stop 100
 
 # Export VM to backup
-qm export 100 /datapool/backups/windows11-pre-migration.vma.zst
+qm export 100 /bulkpool/backups/windows11-pre-migration.vma.zst
 
 # Delete old VM disk (THIS IS DESTRUCTIVE!)
 qm destroy 100 --purge
@@ -1405,14 +1405,14 @@ qm destroy 100 --purge
 # ... (follow VM creation steps from earlier, or restore from backup)
 
 # Import VM from backup
-qm importovf 100 /datapool/backups/windows11-pre-migration.vma.zst rpool
+qm importovf 100 /bulkpool/backups/windows11-pre-migration.vma.zst rpool
 
 # Start VM
 qm start 100
 
 # Verify Windows boots correctly
 # If successful, delete backup:
-# rm /datapool/backups/windows11-pre-migration.vma.zst
+# rm /bulkpool/backups/windows11-pre-migration.vma.zst
 
 
 # Option B: Live Migration (advanced, less downtime)
@@ -1446,13 +1446,13 @@ qm start 100
 pct exec 200 -- bash -c "cd /srv/docker && docker compose down"
 
 # Copy Docker data to new pool
-rsync -avhP /datapool/docker-volumes/ /rpool/docker-volumes/
+rsync -avhP /bulkpool/docker-volumes/ /rpool/docker-volumes/
 
 # Update container mount point
 nano /etc/pve/lxc/200.conf
 
 # Change:
-#   mp0: /datapool/docker-volumes,mp=/srv/docker
+#   mp0: /bulkpool/docker-volumes,mp=/srv/docker
 # To:
 #   mp0: /rpool/docker-volumes,mp=/srv/docker
 
@@ -1471,7 +1471,7 @@ pct exec 200 -- bash -c "cd /srv/docker/watchtower && docker compose up -d"
 pct exec 200 -- docker ps
 
 # If everything works, delete old data:
-# rm -rf /datapool/docker-volumes/*
+# rm -rf /bulkpool/docker-volumes/*
 ```
 
 #### Phase 2: Rebuild Bulk Pool with RAIDZ1
@@ -1491,9 +1491,8 @@ lsblk -o NAME,SIZE,MODEL,SERIAL,TRAN
 ls -l /dev/disk/by-id/ | grep -E 'ata.*1T'
 
 # You should now have:
-# - 1x 1TB (original, in datapool)
-# - 1x 3TB (original, in datapool)
-# - 3x 1TB (new, unformatted)
+# - 2x 1TB (original, in bulkpool mirror)
+# - 4x 1TB (new, unformatted)
 ```
 
 **Step 2: Create New RAIDZ1 Pool**
@@ -1528,26 +1527,26 @@ zfs set com.sun:auto-snapshot=true bulkpool-new/media
 zfs set com.sun:auto-snapshot=true bulkpool-new/cloud
 ```
 
-**Step 3: Migrate Data from Old datapool**
+**Step 3: Migrate Data from Old bulkpool**
 
 ```bash
 # Copy media files to new pool
-rsync -avhP --progress /datapool/media/ /bulkpool-new/media/
+rsync -avhP --progress /bulkpool/media/ /bulkpool-new/media/
 
 # Copy backups
-rsync -avhP --progress /datapool/backups/ /bulkpool-new/backups/
+rsync -avhP --progress /bulkpool/backups/ /bulkpool-new/backups/
 
 # Verify data integrity
-diff -r /datapool/media/ /bulkpool-new/media/
+diff -r /bulkpool/media/ /bulkpool-new/media/
 
 # If everything matches, continue...
 ```
 
-**Step 4: Destroy Old Pool and Add 4th Drive**
+**Step 4: Expand Pool with Additional Drives**
 
 ```bash
-# Export old datapool
-zpool export datapool
+# Export old bulkpool
+zpool export bulkpool
 
 # Add original 1TB drive to new pool
 zpool attach bulkpool-new \
@@ -1571,7 +1570,7 @@ zpool status bulkpool
 **Step 5: Update Mounts and Services**
 
 ```bash
-# Update any containers that mounted datapool
+# Update any containers that mounted bulkpool
 nano /etc/pve/lxc/200.conf
 
 # Update mount point paths if needed
@@ -1638,7 +1637,7 @@ Before starting migration, verify:
 
 **DON'T:**
 - ❌ Store critical, irreplaceable data without external backups
-- ❌ Fill datapool beyond 80% capacity
+- ❌ Fill bulkpool beyond 80% capacity
 - ❌ Deploy production services that others depend on
 - ❌ Add more VMs unless you have space
 - ❌ Disable automatic snapshots
@@ -1753,7 +1752,7 @@ zpool status              # Check pool health
 zpool list                # List all pools
 zfs list                  # List all datasets
 zfs list -t snapshot      # List all snapshots
-zpool scrub datapool      # Start scrub
+zpool scrub bulkpool      # Start scrub
 ```
 
 ### Container Management

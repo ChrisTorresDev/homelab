@@ -134,7 +134,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 
 ## Current Build Progress
 
-**Last Updated**: 2025-01-17
+**Last Updated**: 2025-01-20 (Evening Session)
 
 ### Phase 1: Legion Desktop Setup (IN PROGRESS)
 
@@ -153,27 +153,55 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
   - VFIO modules configured
   - GPU PCI IDs bound to vfio-pci driver (10de:1c03,10de:10f1)
   - GPU isolated from host successfully
-- ✅ **VM 100 - Windows 11 Gaming**: Installation in progress
+- ✅ **VM 100 - Windows 11 Gaming**: COMPLETED AND TESTED
   - VM created: 240GB disk, 16GB RAM, 6 cores, UEFI+TPM
-  - VirtIO SCSI driver loaded during installation
-  - Windows 11 installing (step 1/3 when last checked)
-  - GPU passthrough temporarily removed for installation (will re-add after VirtIO drivers)
+  - Windows 11 fully installed and configured
+  - VirtIO drivers installed (virtio-win-gt-x64.exe)
+  - NVIDIA drivers installed and working
+  - GPU passthrough active with x-vga=1 (physical monitor as primary display)
+  - USB passthrough configured: Apple keyboard (05ac:024f)
+  - Bluetooth passthrough configured: Realtek RTL8822BE (0bda:b023)
+  - **Performance Benchmarks (confirming near-native GPU passthrough):**
+    - Heaven Benchmark: 130 FPS @ 1080p, 60 FPS @ 1440p, 15 FPS @ 4K
+    - Cinebench R23: 5520 pts (multi-core), 1003 pts (single-core)
+    - CrystalDiskMark: 4068 MB/s read, 3699 MB/s write (sequential Q1T1)
+
+- ✅ **CT 200 - Infrastructure LXC**: COMPLETED
+  - Debian 12 container created (192.168.50.120)
+  - Docker and Docker Compose installed
+  - ZFS dataset created: bulkpool/docker-volumes
+  - Mount point configured: /srv/docker
+  - Directory structure created for services
+  - Portainer deployed (https://192.168.50.120:9443)
+  - Watchtower deployed (auto-updates containers daily)
+  - **RustDesk Server deployed and configured:**
+    - Server running on 192.168.50.120
+    - Public key: FEZFOdXIu0f3Bzk7duAf8y8P54lOJUjTAcV5bFu9zHM=
+    - Clients configured on: Windows VM, Mac, and phone
+    - Self-hosted remote desktop working
+  - **Nextcloud deployed on bulkpool:**
+    - Web UI: http://192.168.50.120:8080
+    - MariaDB + Redis for performance
+    - Data stored on bulkpool/cloud dataset
+    - Sync clients configured on: Windows VM, Mac, and phone
+    - ZFS snapshots protecting cloud data
 
 **Next Steps:**
-1. Complete Windows 11 OOBE setup
-2. Install VirtIO drivers (virtio-win-gt-x64.exe)
-3. Re-add GPU passthrough to VM 100
-4. Install NVIDIA drivers in Windows
-5. Test gaming performance
-6. Create CT 200 - Infrastructure LXC container
-7. Install Docker and deploy Portainer
+1. Install Tailscale for remote access from outside home network
+2. Optional: Deploy additional services (monitoring, media tools, etc.)
+3. Phase 2: Set up Dell Latitude 7520 as Jellyfin/Tdarr media node
+4. Phase 3: Set up T480s as Proxmox Backup Server
 
-**Current Guide**: Following `phase1-simplified-build.md` - currently at Step 5 (Install VirtIO Drivers)
+**Current Guide**: Following `phase1-simplified-build.md` - Phase 1 core infrastructure COMPLETE!
 
 **Known Issues Resolved:**
-- VNC console access when GPU passthrough enabled (solved by temporarily removing GPU for installation)
+- VNC console access when GPU passthrough enabled (solved by configuring x-vga=1 for physical monitor)
 - Windows installer not detecting disk (solved by loading VirtIO SCSI driver from virtio-win.iso)
-- Network driver prompt during OOBE (bypassed or loaded NetKVM driver)
+- Display output routing (solved by using hostpci0 with x-vga=1 after driver installation)
+- GPU PCI reset warnings (expected behavior with NVIDIA consumer cards, no impact on functionality)
+
+**Known Minor Issues:**
+- Bluetooth devices don't work at Windows login screen (Windows security feature) - USB keyboard required for login, Bluetooth works after login
 
 ### Phase 2: Dell Latitude 7520 Media Node (NOT STARTED)
 
