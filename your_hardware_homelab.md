@@ -1284,6 +1284,61 @@ Then set Jellyfin → Dashboard → Playback → Hardware acceleration = **VA-AP
 - Data directory on `/bulkpool/cloud`; database lives on `fastpool/infra`.
 - Install apps: Calendar, Contacts, Tasks, Notes, Photos, Deck, Talk.
 
+### Uptime Kuma (Infra LXC)
+Keep an eye on all homelab services using Uptime Kuma.
+```bash
+pct exec 200 -- bash -c "
+mkdir -p /srv/infra/uptime-kuma/data
+cat > /srv/infra/uptime-kuma/docker-compose.yml <<'EOF'
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - 3002:3001
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - ./data:/app/data
+EOF
+"
+
+pct exec 200 -- bash -c "cd /srv/infra/uptime-kuma && docker compose up -d"
+```
+- Access `http://192.168.50.120:3002`, create the admin user, then add monitors for Proxmox (`https://192.168.50.110:8006` with "ignore TLS"), Portainer (`https://192.168.50.120:9443`), AdGuard DNS (`53/udp`), PBS (`https://192.168.50.140:8007`), etc.
+- Configure notifications (Discord, Pushover, Matrix, email) so that outages trigger alerts automatically.
+
+### Nginx Proxy Manager (Infra LXC)
+NPM provides a UI for reverse proxying and certificate automation.
+```bash
+pct exec 200 -- bash -c "
+mkdir -p /srv/infra/npm/{data,letsencrypt}
+cat > /srv/infra/npm/docker-compose.yml <<'EOF'
+services:
+  npm:
+    image: jc21/nginx-proxy-manager:2
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - 80:80
+      - 81:81
+      - 443:443
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+EOF
+"
+
+pct exec 200 -- bash -c "cd /srv/infra/npm && docker compose up -d"
+```
+- UI available at `http://192.168.50.120:81` (default credentials `admin@example.com` / `changeme` → change immediately).
+- Use AdGuard Home → **Filters → DNS rewrites** to map friendly hostnames (e.g., `nextcloud.lab`, `kuma.lab`, `portainer.lab`) to `192.168.50.120`.
+- In NPM create proxy hosts that forward to services (Nextcloud `http://192.168.50.120:8080`, Portainer `https://192.168.50.120:9443`, AdGuard `http://192.168.50.120:8083`, Uptime Kuma `http://192.168.50.120:3002`, etc.).
+- Attach Let's Encrypt (public domain with port forwarding), DNS-challenge, or custom certificates for HTTPS, then enable "Force SSL" on each proxy.
+
 ### Additional Services
 - Portainer, Dockge, Watchtower inside CT 200.
 - Grafana/Loki/Prometheus either on CT 200 or the T480s backup node.

@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  portfolio:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: christorresdev-portfolio
+    restart: unless-stopped
+    ports:
+      - "8090:80"
+    networks:
+      - webnet
+    labels:
+      - "com.watchtower.enable=true"
+
+networks:
+  webnet:
+    external: true

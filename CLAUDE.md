@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Purpose
 
-This is a homelab documentation repository containing a comprehensive setup guide (`your_hardware_homelab.md`) for building a self-hosted infrastructure using repurposed hardware.
+This is a homelab documentation repository containing:
+1. Comprehensive setup guides (`your_hardware_homelab.md`, `phase1-simplified-build.md`) for building a self-hosted infrastructure using repurposed hardware
+2. **Portfolio website project** (`portfolio-website/`) - A professional Next.js website for showcasing freelance Python automation projects, designed to be self-hosted on the homelab infrastructure
 
 ## Hardware Context
 
@@ -22,7 +24,7 @@ The guide is tailored to a specific hardware configuration:
 
 1. **Legion Desktop (192.168.50.110)**: Runs Proxmox VE 24/7 as primary hypervisor with GPU passthrough for Windows 11 gaming VM
 2. **VM 100 - Windows 11 Gaming (192.168.50.111)**: GTX 1060 passthrough, 16GB RAM, native gaming performance
-3. **CT 200 - Infra LXC (192.168.50.120)**: Docker host running Portainer, RustDesk, Nextcloud, Tailscale
+3. **CT 200 - Infra LXC (192.168.50.120)**: Docker host running Portainer, RustDesk, Nextcloud, Tailscale, AdGuard Home
 4. **CT 210 - Storage LXC**: Samba/NFS exports, snapshot scripts
 5. **Dell Latitude 7520 (192.168.50.130)**: Ubuntu Server + Docker running Jellyfin/Tdarr with Intel Quick Sync hardware transcoding
 6. **T480s #1 (192.168.50.140)**: Proxmox Backup Server with backup-ssd mirror receiving ZFS replicas
@@ -33,6 +35,7 @@ The guide is tailored to a specific hardware configuration:
 - **Jellyfin**: Media server with Intel Quick Sync transcoding (Dell 7520)
 - **Nextcloud**: Cloud storage on bulkpool (CT 200/210)
 - **Portainer**: Docker container management UI (CT 200)
+- **AdGuard Home**: Network-wide ad-blocking DNS sinkhole (CT 200)
 - **Tailscale**: Zero-config VPN mesh network
 - **Proxmox Backup Server**: Automated VM/CT backups with retention
 
@@ -48,7 +51,7 @@ The guide is tailored to a specific hardware configuration:
 ```
 192.168.50.110 - Legion Proxmox host
 192.168.50.111 - Windows 11 Gaming VM
-192.168.50.120 - Infra LXC (Docker/Portainer/RustDesk/Nextcloud)
+192.168.50.120 - Infra LXC (Docker/Portainer/RustDesk/Nextcloud/AdGuard)
 192.168.50.130 - Dell Latitude 7520 (Jellyfin/Tdarr)
 192.168.50.140 - Lenovo T480s Proxmox Backup Server
 ```
@@ -64,16 +67,35 @@ The repository contains multiple interconnected documentation files:
   - Phase 3: T480s → backup node with Proxmox Backup Server and ZFS replication
 
 - **`phase1-simplified-build.md`**: Streamlined Phase 1 guide for starting immediately with limited hardware (single NVMe + HDDs, no external enclosures yet). Designed as a stepping stone to the full architecture.
+  - **Expanded with Docker Services**: Now includes comprehensive deployment guides for:
+    - Portainer (container management UI)
+    - Watchtower (automatic container updates)
+    - RustDesk (self-hosted remote desktop)
+    - Nextcloud (cloud storage)
+    - Tailscale (VPN mesh network)
+    - AdGuard Home (network-wide ad blocking)
+    - Uptime Kuma (service monitoring dashboard)
+    - Nginx Proxy Manager (reverse proxy with TLS management)
 
 ### Troubleshooting Guides
 - **`troubleshooting-ssh-connection.md`**: Step-by-step debugging for Proxmox SSH connectivity issues
 - **`proxmox_login_troubleshooting.md`**: Solutions for Proxmox web UI and console authentication problems
 - **`mac-network-setup.md`**: macOS-specific network configuration and connectivity troubleshooting
 
+### Portfolio Website Project
+- **`portfolio-website/`**: Complete Next.js application for christorresdev.com
+  - **`README.md`**: Project overview, tech stack, local development instructions
+  - **`deployment/DEPLOYMENT_GUIDE.md`**: Complete step-by-step deployment guide for Proxmox homelab
+  - **`app/page.tsx`**: Main portfolio page showcasing Python automation projects
+  - **`Dockerfile`** + **`nginx.conf`**: Production containerization
+  - **`deployment/docker-compose.*.yml`**: Docker Compose files for all services (NPM, Cloudflared, Portfolio)
+- **`PORTFOLIO_WEBSITE_SUMMARY.md`**: High-level project summary, what's completed, and next steps
+
 ### Documentation Workflow
 - Start with `phase1-simplified-build.md` if building with limited hardware immediately
 - Use `your_hardware_homelab.md` as the canonical reference for the complete architecture
 - Reference troubleshooting guides when specific issues arise during setup
+- For portfolio website deployment, follow `portfolio-website/deployment/DEPLOYMENT_GUIDE.md`
 - Keep IP addressing scheme (192.168.50.110-140) consistent across all documentation
 
 ## Key Technical Decisions
@@ -134,7 +156,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 
 ## Current Build Progress
 
-**Last Updated**: 2025-01-20 (Evening Session)
+**Last Updated**: 2025-11-23 (Portfolio Website Development Session)
 
 ### Phase 1: Legion Desktop Setup (IN PROGRESS)
 
@@ -185,14 +207,66 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
     - Data stored on bulkpool/cloud dataset
     - Sync clients configured on: Windows VM, Mac, and phone
     - ZFS snapshots protecting cloud data
+  - **Tailscale deployed for remote access:**
+    - Deployed as a Docker container on infra-lxc (192.168.50.120)
+    - Subnet routing enabled for 192.168.50.0/24
+    - Remote access to all devices on the LAN is working
+  - **AdGuard Home deployed for network-wide ad-blocking:**
+    - Deployed as a Docker container on infra-lxc (192.168.50.120)
+    - Admin UI available at http://192.168.50.120:8083
+    - Router configured to use AdGuard Home for DNS
+
+**New Projects:**
+- ✅ **Portfolio Website for Freelance Business (christorresdev.com)**: DEVELOPMENT COMPLETE
+  - **Purpose**: Professional portfolio website showcasing Python automation projects for Upwork freelance business
+  - **Domain**: christorresdev.com (purchased from Namecheap)
+  - **Tech Stack**: Next.js 16 + TypeScript + Tailwind CSS
+  - **Features**:
+    - Modern, responsive design with dark mode support
+    - Hero section highlighting Python automation expertise ("Save 10+ Hours Per Week")
+    - Two featured projects with detailed metrics:
+      - Automated Report Generator (97% time savings, 2.5 hours → 5 minutes)
+      - Data Cleaning & Validation Tool (94% time savings, 3 hours → 10 minutes)
+    - About section with skills and expertise
+    - Contact section (email + GitHub links)
+    - Static site generation for optimal performance
+  - **Deployment Architecture** (planned for CT 200):
+    ```
+    Internet → Cloudflare Tunnel (FREE) → CT 200 → Nginx Proxy Manager (TLS) → Portfolio Container
+    ```
+  - **Files Created**:
+    - `/portfolio-website/` - Complete Next.js application with all pages
+    - `Dockerfile` + `nginx.conf` - Production containerization
+    - `deployment/DEPLOYMENT_GUIDE.md` - Comprehensive step-by-step deployment instructions
+    - `deployment/docker-compose.*.yml` - All deployment configurations (NPM, Cloudflared, Portfolio)
+    - `PORTFOLIO_WEBSITE_SUMMARY.md` - Project summary and next steps
+  - **Status**: Website built and tested locally, ready for deployment to CT 200
+  - **Cost**: $10-12/year (domain only, everything else FREE)
+  - **Next Steps**:
+    1. Set up Cloudflare account and add domain
+    2. Update Namecheap nameservers to Cloudflare
+    3. Create Cloudflare Tunnel (after DNS propagation)
+    4. Deploy Nginx Proxy Manager on CT 200
+    5. Deploy portfolio website container on CT 200
+    6. Configure DNS and email forwarding (contact@christorresdev.com)
+  - **Timeline**: Ready to deploy when DNS propagates (1-24 hours after nameserver update)
 
 **Next Steps:**
-1. Install Tailscale for remote access from outside home network
-2. Optional: Deploy additional services (monitoring, media tools, etc.)
-3. Phase 2: Set up Dell Latitude 7520 as Jellyfin/Tdarr media node
-4. Phase 3: Set up T480s as Proxmox Backup Server
+1. ✅ **Tailscale for remote access from outside home network** - Deployed and working.
+2. ✅ **AdGuard Home for network-wide ad-blocking** - Deployed and configured.
+3. Optional services documented in phase1-simplified-build.md (ready to deploy):
+   - **Uptime Kuma**: Service monitoring dashboard with alerting
+   - **Nginx Proxy Manager**: Friendly reverse proxy with TLS certificate management
+4. Phase 2: Set up Dell Latitude 7520 as Jellyfin/Tdarr media node
+5. Phase 3: Set up T480s as Proxmox Backup Server
 
 **Current Guide**: Following `phase1-simplified-build.md` - Phase 1 core infrastructure COMPLETE!
+
+**Phase 1 Documentation Updates:**
+- ✅ `phase1-simplified-build.md` expanded with Tailscale deployment guide (Step 10)
+- ✅ `phase1-simplified-build.md` expanded with AdGuard Home deployment guide (Step 11)
+- ✅ `phase1-simplified-build.md` expanded with Uptime Kuma deployment guide (Step 12) - ready for deployment
+- ✅ `phase1-simplified-build.md` expanded with Nginx Proxy Manager deployment guide (Step 13) - ready for deployment
 
 **Known Issues Resolved:**
 - VNC console access when GPU passthrough enabled (solved by configuring x-vga=1 for physical monitor)

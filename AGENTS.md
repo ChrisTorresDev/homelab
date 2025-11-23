@@ -9,11 +9,12 @@ This is a homelab documentation repository containing a comprehensive setup guid
 ## Hardware Context
 
 The guide is tailored to a specific hardware configuration:
-- **Lenovo Legion Desktop** (32GB RAM, GTX 1060 6GB, 512GB NVMe + 1TB + 3TB HDDs) - Gaming PC running Proxmox VE 24/7
+- **Lenovo Legion Desktop** (32GB RAM, GTX 1060 6GB, 512GB NVMe + 2x 1TB HDDs) - Gaming PC running Proxmox VE 24/7
+  - **Note**: Originally had 3TB HDD but removed due to broken SATA port
 - **2x Lenovo T480s laptops** - One for Proxmox Backup Server (backup/observability node), one spare
 - **2x ThinkPad X1 laptops** - Lab/dev boxes for testing
 - **1x Dell Latitude 7520** - Dedicated Jellyfin/Tdarr media node with Intel Quick Sync
-- **External storage**: 4x 1TB SSDs (2 for fastpool mirror on Legion, 2 for backup-ssd mirror on T480s) + 4x 1TB HDDs (RAIDZ1 bulkpool) + 1x 3TB HDD (cold backup archive)
+- **External storage** (planned): 4x 1TB SSDs (2 for fastpool mirror on Legion, 2 for backup-ssd mirror on T480s) + 4x 1TB HDDs (RAIDZ1 bulkpool expansion) + 1x 3TB HDD (cold backup archive - currently offline)
 
 ## Architecture Overview
 
@@ -36,10 +37,12 @@ The guide is tailored to a specific hardware configuration:
 - **Proxmox Backup Server**: Automated VM/CT backups with retention
 
 ### Storage Architecture (ZFS)
-- **fastpool** (2x 1TB SSD mirror on Legion): VM disks, Docker volumes, databases
-- **bulkpool** (4x 1TB HDD RAIDZ1 on Legion): Media, Nextcloud data, general files
-- **backup-ssd** (2x 1TB SSD mirror on T480s): Receives ZFS send replicas
-- **archive** (3TB HDD): Weekly offline snapshots, unplugged when idle
+- **rpool** (NVMe single disk on Legion): Proxmox system, VM disks - **Current Phase**
+- **bulkpool** (2x 1TB HDD mirror on Legion): Media, Nextcloud data, general files - **Current Phase**
+- **fastpool** (2x 1TB SSD mirror on Legion): VM disks, Docker volumes, databases - **Planned with external SSDs**
+- **bulkpool-expanded** (4x 1TB HDD RAIDZ1 on Legion): Expanded media storage - **Planned with external HDDs**
+- **backup-ssd** (2x 1TB SSD mirror on T480s): Receives ZFS send replicas - **Planned Phase 3**
+- **archive** (3TB HDD): Weekly offline snapshots, unplugged when idle - **Deferred until 3TB drive reconnected**
 
 ### IP Address Scheme
 ```
@@ -52,17 +55,26 @@ The guide is tailored to a specific hardware configuration:
 
 ## Documentation Structure
 
-The main guide (`your_hardware_homelab.md`) is organized into phases:
+The repository contains multiple interconnected documentation files:
 
-- **Phase 1**: Legion Desktop conversion to Proxmox VE with GPU passthrough, ZFS pools, Windows 11 VM, and LXC containers
-- **Phase 2**: Dell Latitude 7520 setup as dedicated media node with Intel Quick Sync
-- **Phase 3**: T480s backup node with Proxmox Backup Server and ZFS replication
+### Main Guides
+- **`your_hardware_homelab.md`**: Comprehensive three-phase setup guide for the full homelab architecture
+  - Phase 1: Legion Desktop → Proxmox VE with GPU passthrough, ZFS pools, Windows 11 VM, and LXC containers
+  - Phase 2: Dell Latitude 7520 → dedicated media node with Intel Quick Sync
+  - Phase 3: T480s → backup node with Proxmox Backup Server and ZFS replication
 
-### Supporting Playbooks
-- `phase1-simplified-build.md`: Interim plan for launching Proxmox immediately with the currently-installed NVMe and 2x1TB HDDs while SATA ports and enclosures are limited. Keep migration paths back to the full Phase 1 design explicit whenever equipment constraints are mentioned.
-- `mac-network-setup.md`: Walkthrough for getting a Mac on the 192.168.50.0/24 network (SSID choices, router DHCP ranges, verification commands). Preserve the diagnosis-first style and keep all IP references aligned with the main scheme.
-- `proxmox_login_troubleshooting.md`: Console login recovery guide covering keyboard layout checks and the full single-user-mode password reset process. Any additions should keep the quick-check → recovery-mode order intact.
-- `troubleshooting-ssh-connection.md`: SSH timeout triage from the Proxmox console (interface/IP verification, `/etc/network/interfaces`, gateway tests). Maintain the decision-tree structure so readers can branch quickly based on what they observe.
+- **`phase1-simplified-build.md`**: Streamlined Phase 1 guide for starting immediately with limited hardware (single NVMe + HDDs, no external enclosures yet). Designed as a stepping stone to the full architecture.
+
+### Troubleshooting Guides
+- **`troubleshooting-ssh-connection.md`**: Step-by-step debugging for Proxmox SSH connectivity issues
+- **`proxmox_login_troubleshooting.md`**: Solutions for Proxmox web UI and console authentication problems
+- **`mac-network-setup.md`**: macOS-specific network configuration and connectivity troubleshooting
+
+### Documentation Workflow
+- Start with `phase1-simplified-build.md` if building with limited hardware immediately
+- Use `your_hardware_homelab.md` as the canonical reference for the complete architecture
+- Reference troubleshooting guides when specific issues arise during setup
+- Keep IP addressing scheme (192.168.50.110-140) consistent across all documentation
 
 ## Key Technical Decisions
 
@@ -90,17 +102,110 @@ The main guide (`your_hardware_homelab.md`) is organized into phases:
 - No port forwarding required
 
 ### Backup & Redundancy
-1. **Local protection**: ZFS mirrors + RAIDZ1 handle single-disk failures
+**Current Phase (Limited Hardware):**
+1. **Local protection**: ZFS mirror (2x 1TB HDD bulkpool) handles single-disk failure
 2. **Snapshots**: Hourly (24h) + daily (14d) + weekly (8w) via zfs-auto-snapshot
-3. **Replication**: ZFS send jobs to T480s backup node over SSH
-4. **Cold copies**: Weekly snapshots to 3TB archive disk (offline storage)
-5. **PBS backups**: Nightly Proxmox Backup Server jobs for VMs/containers
+3. **Critical data**: Manual exports to external USB drive recommended until external storage arrives
+
+**Planned Phase (Full Setup):**
+1. **Local protection**: ZFS mirrors + RAIDZ1 handle single-disk failures
+2. **Replication**: ZFS send jobs to T480s backup node over SSH
+3. **Cold copies**: Weekly snapshots to 3TB archive disk (offline storage) - deferred
+4. **PBS backups**: Nightly Proxmox Backup Server jobs for VMs/containers
 
 ## Important Safety Notes
 
 **Battery Removal**: The guide emphasizes removing batteries from laptops running 24/7 to prevent fire hazards from battery swelling during constant charging.
 
 **UPS Integration**: APC 1200VA UPS backs Legion + network gear + storage + T480s with apcupsd for graceful shutdowns.
+
+## Homelab-Guru Agent
+
+This repository includes a custom Claude Code agent (`.claude/agents/homelab-guru.md`) specialized in homelab infrastructure guidance. The agent should be consulted for:
+- Hardware selection and compatibility questions
+- Storage topology decisions (ZFS mirrors vs RAIDZ1/2/3)
+- GPU passthrough troubleshooting (IOMMU errors, VT-d configuration)
+- Transcoding hardware recommendations (Quick Sync vs NVENC)
+- Network architecture and 10GbE implementation
+- Power efficiency and UPS sizing
+- Virtualization platform best practices
+
+Use the homelab-guru agent when questions require deep homelab expertise beyond basic documentation updates.
+
+## Current Build Progress
+
+**Last Updated**: 2025-01-20 (Evening Session)
+
+### Phase 1: Legion Desktop Setup (IN PROGRESS)
+
+**Completed Steps:**
+- ✅ **Proxmox VE 8 Installation**: Successfully installed on Legion Desktop (192.168.50.110)
+  - BIOS configured: VT-x, VT-d, Above 4G Decoding enabled
+  - Network configured with static IP
+  - Post-installation updates completed
+- ✅ **ZFS Pool Configuration**: Created `bulkpool` with 2x 1TB HDD mirror
+  - Single-drive fault tolerance active
+  - Datasets created: media, cloud, backups, docker
+  - Auto-snapshots configured via zfs-auto-snapshot
+  - SMART monitoring enabled
+- ✅ **GPU Passthrough Setup**: GTX 1060 configured for VM passthrough
+  - IOMMU enabled and verified
+  - VFIO modules configured
+  - GPU PCI IDs bound to vfio-pci driver (10de:1c03,10de:10f1)
+  - GPU isolated from host successfully
+- ✅ **VM 100 - Windows 11 Gaming**: COMPLETED AND TESTED
+  - VM created: 240GB disk, 16GB RAM, 6 cores, UEFI+TPM
+  - Windows 11 fully installed and configured
+  - VirtIO drivers installed (virtio-win-gt-x64.exe)
+  - NVIDIA drivers installed and working
+  - GPU passthrough active with x-vga=1 (physical monitor as primary display)
+  - USB passthrough configured: Apple keyboard (05ac:024f)
+  - Bluetooth passthrough configured: Realtek RTL8822BE (0bda:b023)
+  - **Performance Benchmarks (confirming near-native GPU passthrough):**
+    - Heaven Benchmark: 130 FPS @ 1080p, 60 FPS @ 1440p, 15 FPS @ 4K
+    - Cinebench R23: 5520 pts (multi-core), 1003 pts (single-core)
+    - CrystalDiskMark: 4068 MB/s read, 3699 MB/s write (sequential Q1T1)
+
+- ✅ **CT 200 - Infrastructure LXC**: COMPLETED
+  - Debian 12 container created (192.168.50.120)
+  - Docker and Docker Compose installed
+  - ZFS dataset created: bulkpool/docker-volumes
+  - Mount point configured: /srv/docker
+  - Directory structure created for services
+  - Portainer deployed (https://192.168.50.120:9443)
+  - Watchtower deployed (auto-updates containers daily)
+  - **RustDesk Server deployed and configured:**
+    - Server running on 192.168.50.120
+    - Public key: FEZFOdXIu0f3Bzk7duAf8y8P54lOJUjTAcV5bFu9zHM=
+    - Clients configured on: Windows VM, Mac, and phone
+    - Self-hosted remote desktop working
+  - **Nextcloud deployed on bulkpool:**
+    - Web UI: http://192.168.50.120:8080
+    - MariaDB + Redis for performance
+    - Data stored on bulkpool/cloud dataset
+    - Sync clients configured on: Windows VM, Mac, and phone
+    - ZFS snapshots protecting cloud data
+
+**Next Steps:**
+1. Install Tailscale for remote access from outside home network
+2. Optional: Deploy additional services (monitoring, media tools, etc.)
+3. Phase 2: Set up Dell Latitude 7520 as Jellyfin/Tdarr media node
+4. Phase 3: Set up T480s as Proxmox Backup Server
+
+**Current Guide**: Following `phase1-simplified-build.md` - Phase 1 core infrastructure COMPLETE!
+
+**Known Issues Resolved:**
+- VNC console access when GPU passthrough enabled (solved by configuring x-vga=1 for physical monitor)
+- Windows installer not detecting disk (solved by loading VirtIO SCSI driver from virtio-win.iso)
+- Display output routing (solved by using hostpci0 with x-vga=1 after driver installation)
+- GPU PCI reset warnings (expected behavior with NVIDIA consumer cards, no impact on functionality)
+
+**Known Minor Issues:**
+- Bluetooth devices don't work at Windows login screen (Windows security feature) - USB keyboard required for login, Bluetooth works after login
+
+### Phase 2: Dell Latitude 7520 Media Node (NOT STARTED)
+
+### Phase 3: T480s Backup Server (NOT STARTED)
 
 ## When Making Updates
 
@@ -110,5 +215,5 @@ The main guide (`your_hardware_homelab.md`) is organized into phases:
 - Preserve the three-phase installation structure
 - Update power consumption estimates if hardware allocation changes
 - Maintain the balance between beginner-friendly explanations and technical depth
-- Keep troubleshooting guides actionable: start with non-destructive checks (keyboard layout, interface status, WiFi SSID) before escalation steps like password resets or reconfiguring routers.
-- When documenting temporary hardware limitations (e.g., only 2x1TB HDDs, missing enclosures), explicitly call out how to transition back to the desired ZFS topology once the full parts list is available.
+- When adding new troubleshooting documentation, follow the pattern established in existing troubleshooting guides (problem statement, step-by-step diagnosis, root cause, solution)
+- Cross-reference related documentation (e.g., link troubleshooting guides from main setup guides where issues commonly occur)

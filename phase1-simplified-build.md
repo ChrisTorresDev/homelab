@@ -1137,6 +1137,293 @@ pct exec 200 -- docker stats --no-stream
 pct exec 200 -- df -h /srv/docker
 ```
 
+### Step 10: Deploy Tailscale (VPN for Remote Access)
+
+Tailscale creates a secure, zero-config VPN mesh network that allows you to access your homelab from anywhere in the world without opening any ports on your router.
+
+**1. Generate a Tailscale Auth Key:**
+
+- Go to the [Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys).
+- Click "Generate auth key...".
+- Make the key **Reusable** and **Ephemeral**.
+- **Important**: Copy the generated key (`tskey-auth-...`). You will need it in the next step.
+
+**2. Create Tailscale Directory:**
+
+```bash
+# Create directory for Tailscale config
+pct exec 200 -- mkdir -p /srv/docker/tailscale
+```
+
+**3. Create Tailscale Compose File:**
+
+```bash
+# Create Tailscale compose file
+pct exec 200 -- bash -c "cat > /srv/docker/tailscale/docker-compose.yml <<'EOF'
+services:
+  tailscale:
+    image: tailscale/tailscale:latest
+    container_name: tailscale
+    hostname: infra-lxc
+    environment:
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_USERSPACE=true
+      - TS_AUTHKEY=YOUR_AUTH_KEY_HERE # PASTE YOUR KEY
+      - TS_EXTRA_ARGS=--advertise-routes=192.168.50.0/24 --accept-routes=true
+    volumes:
+      - /srv/docker/tailscale/state:/var/lib/tailscale
+      - /dev/net/tun:/dev/net/tun
+    cap_add:
+      - net_admin
+      - sys_module
+    network_mode: host
+    restart: unless-stopped
+EOF
+"
+```
+
+**4. Add Your Auth Key:**
+
+Before starting the container, you need to replace `YOUR_AUTH_KEY_HERE` with the key you generated.
+
+```bash
+# SSH into the Proxmox host
+ssh root@192.168.50.110
+
+# Enter the LXC container
+pct enter 200
+
+# Edit the docker-compose file
+nano /srv/docker/tailscale/docker-compose.yml
+
+# Replace YOUR_AUTH_KEY_HERE with your actual Tailscale auth key.
+# Press Ctrl+X, then Y, then Enter to save.
+
+# Exit the container
+exit
+```
+
+**5. Start Tailscale:**
+
+```bash
+# Start Tailscale from the Proxmox host
+pct exec 200 -- bash -c "cd /srv/docker/tailscale && docker compose up -d"
+
+# Check if it's running
+pct exec 200 -- docker ps
+```
+
+**6. Enable Subnet Routes in Tailscale Admin Console:**
+
+- Go to the [Tailscale Admin Console](https://login.tailscale.com/admin/machines).
+- Find your `infra-lxc` machine and click the `...` menu, then "Edit route settings...".
+- **Approve** the `192.168.50.0/24` subnet route.
+
+Now, from any device connected to your Tailscale network (like your phone or laptop), you can access any device on your home network using its local IP address (e.g., `192.168.50.110` for Proxmox).
+
+### Step 11: Deploy AdGuard Home (Network-wide Ad-blocker)
+
+AdGuard Home is a network-wide ad and tracker-blocking DNS server. It provides a central place to manage what your devices can access, improving privacy and security for your entire network.
+
+**1. Create AdGuard Home Directory:**
+
+```bash
+# Create directories for AdGuard Home config and work data
+pct exec 200 -- mkdir -p /srv/docker/adguardhome/work
+pct exec 200 -- mkdir -p /srv/docker/adguardhome/conf
+```
+
+**2. Create AdGuard Home Compose File:**
+
+```bash
+# Create AdGuard Home compose file
+pct exec 200 -- bash -c "cat > /srv/docker/adguardhome/docker-compose.yml <<'EOF'
+services:
+  adguardhome:
+    image: adguard/adguardhome:latest
+    container_name: adguardhome
+    restart: unless-stopped
+    ports:
+      - '53:53/tcp'        # DNS
+      - '53:53/udp'        # DNS
+      - '3001:3000/tcp'      # Initial setup UI
+      - '8083:80/tcp'        # Admin UI
+    volumes:
+      - /srv/docker/adguardhome/work:/opt/adguardhome/work
+      - /srv/docker/adguardhome/conf:/opt/adguardhome/conf
+    environment:
+      - TZ=America/New_York # Change to your timezone
+EOF
+"
+```
+
+**3. Start AdGuard Home:**
+
+```bash
+# Start AdGuard Home from the Proxmox host
+pct exec 200 -- bash -c "cd /srv/docker/adguardhome && docker compose up -d"
+
+# Check if it's running
+pct exec 200 -- docker ps
+```
+
+**4. Complete the Web Setup:**
+
+AdGuard Home requires a one-time setup through its web interface.
+
+-   Open your browser and go to `http://192.168.50.120:3001`.
+-   Follow the on-screen instructions:
+    -   **Admin Web Interface**: Set to listen on port 80 (inside the container).
+    -   **DNS Server**: Set to listen on port 53.
+    -   **Authentication**: Create a username and password for your admin dashboard.
+-   Once setup is complete, you can access the dashboard at `http://192.168.50.120:8083`.
+
+**5. Configure Your Router:**
+
+To make all devices on your network use AdGuard Home, you need to change the DNS server settings in your router.
+
+-   Log in to your router's administration page (usually `192.168.50.1`).
+-   Find the **DHCP** or **LAN** settings.
+-   Change the **Primary DNS Server** to `192.168.50.120`.
+-   Leave the secondary DNS blank or set it to a public DNS like `1.1.1.1` as a backup (though this may allow some ads to get through if AdGuard is down).
+-   Save the settings and reboot your router if necessary.
+
+Your devices will now automatically use AdGuard Home for DNS, and you should see queries appearing in the AdGuard Home dashboard.
+
+### Step 12: Deploy Uptime Kuma (Service Monitoring Dashboard)
+
+Uptime Kuma gives you a slick, self-hosted status page that continuously checks whether your homelab services are responding. It helps you catch issues (stopped containers, offline nodes, SSL certificate expirations) before you notice them the hard way.
+
+**1. Create the Uptime Kuma Directory:**
+
+```bash
+# Create directory structure for persistent data
+pct exec 200 -- mkdir -p /srv/docker/uptime-kuma/data
+```
+
+**2. Create the Docker Compose File:**
+
+```bash
+# Create docker-compose.yml
+pct exec 200 -- bash -c "cat > /srv/docker/uptime-kuma/docker-compose.yml <<'EOF'
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+      - '3002:3001'          # Host port 3002 -> container 3001
+    environment:
+      - TZ=America/New_York  # Update to your timezone
+    volumes:
+      - /srv/docker/uptime-kuma/data:/app/data
+EOF
+"
+```
+
+**3. Start the Container:**
+
+```bash
+pct exec 200 -- bash -c "cd /srv/docker/uptime-kuma && docker compose up -d"
+
+# Confirm it is healthy
+pct exec 200 -- docker ps --filter name=uptime-kuma
+```
+
+**4. Perform Initial Setup:**
+
+- Open `http://192.168.50.120:3002`.
+- Create the admin account (this is local to Uptime Kuma).
+- Set up at least three monitors to start:
+  - **HTTP(s) Monitor** → `https://192.168.50.110:8006` (Proxmox web UI). Enable "Ignore TLS/SSL" since Proxmox uses a self-signed cert.
+  - **HTTP(s) Monitor** → `http://192.168.50.120:8080` (Nextcloud front-end behind Caddy or direct).
+  - **DNS or Port Monitor** → Host `192.168.50.120` Port `53` (AdGuard Home DNS) or `:9443` for Portainer.
+- Set the heartbeat interval to 30 seconds or 60 seconds to keep noise manageable.
+
+**5. Add Notifications (Optional but Recommended):**
+
+Uptime Kuma supports Discord, Telegram, Gotify, email, Slack, Matrix, Pushover, and more.
+
+1. Go to **Settings → Notification → Setup Notification**.
+2. Select your preferred notifier (Discord webhooks are easy).
+3. Link the notifier to each monitor under the monitor's settings.
+
+Now you have a single dashboard that shows if any service in CT 200 (or elsewhere) goes down.
+
+### Step 13: Deploy Nginx Proxy Manager (Friendly Reverse Proxy)
+
+Nginx Proxy Manager (NPM) gives you an easy UI to publish internal services with friendly hostnames (e.g., `https://nextcloud.home.lab`). It also handles TLS certificates and access control policies.
+
+> **Ports 80, 81, and 443 must be free on CT 200.** Stop any other containers binding to these ports before deploying NPM.
+
+**1. Create Directories for Config & Certificates:**
+
+```bash
+pct exec 200 -- mkdir -p /srv/docker/npm/{data,letsencrypt}
+```
+
+**2. Create the Docker Compose File:**
+
+```bash
+pct exec 200 -- bash -c "cat > /srv/docker/npm/docker-compose.yml <<'EOF'
+services:
+  npm:
+    image: jc21/nginx-proxy-manager:2
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - '80:80'    # HTTP
+      - '81:81'    # Admin UI
+      - '443:443'  # HTTPS
+    environment:
+      - TZ=America/New_York  # Update to your timezone
+    volumes:
+      - /srv/docker/npm/data:/data
+      - /srv/docker/npm/letsencrypt:/etc/letsencrypt
+EOF
+"
+```
+
+**3. Start the Stack:**
+
+```bash
+pct exec 200 -- bash -c "cd /srv/docker/npm && docker compose up -d"
+
+# Verify the container is running
+pct exec 200 -- docker ps --filter name=nginx-proxy-manager
+```
+
+**4. Secure the Admin UI:**
+
+- Browse to `http://192.168.50.120:81`.
+- Default credentials: **Email:** `admin@example.com` / **Password:** `changeme`.
+- Immediately change the email + password and add a backup admin account.
+
+**5. Create Friendly Hostnames:**
+
+1. Inside AdGuard Home go to **Filters → DNS rewrites** and add entries such as:
+   - `portainer.lab` → `192.168.50.120`
+   - `nextcloud.lab` → `192.168.50.120`
+   - `kuma.lab` → `192.168.50.120`
+2. In NPM, click **Hosts → Proxy Hosts → Add Proxy Host** and configure:
+   - **Domain Names:** `nextcloud.lab`
+   - **Scheme:** `http`
+   - **Forward Hostname/IP:** `192.168.50.120`
+   - **Forward Port:** `8080`
+   - Enable "Cache Assets" and "Block Common Exploits".
+   - Save, then test at `https://nextcloud.lab` (will use HTTP until SSL is enabled).
+3. Repeat for other services (Portainer on `9443`, Uptime Kuma on `3002`, AdGuard on `8083`, Jellyfin later, etc.).
+
+**6. Handle TLS Certificates:**
+
+- If you own a public domain and can forward ports 80/443, use the built-in Let's Encrypt HTTP or DNS challenge.
+- For LAN-only names, either:
+  - Use NPM's **"Custom" certificate** feature with a local CA (e.g., `mkcert`), or
+  - Place NPM behind Tailscale and use `tailscale cert <hostname>` to generate certs.
+- Assign the certificate under each proxy host's **SSL** tab. Enable "Force SSL" after a certificate is attached.
+
+With NPM + AdGuard rewrites you can now use simple URLs (e.g., `https://kuma.lab`) from every LAN device without remembering ports.
+
 ---
 
 ## Understanding Your Limitations
