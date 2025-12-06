@@ -73,7 +73,26 @@ ns2.cloudflare.com
 
 ## Step 2: Create Cloudflare Tunnel
 
-### 2.1 Install Cloudflared on CT 200
+**IMPORTANT: The Cloudflare dashboard interface has changed significantly in 2025.**
+
+For detailed, up-to-date instructions that match the current Cloudflare dashboard:
+
+**Follow this guide: [CLOUDFLARE_TUNNEL_SETUP_2025.md](./CLOUDFLARE_TUNNEL_SETUP_2025.md)**
+
+**If you encounter DNS record conflicts**, see: [TROUBLESHOOTING_DNS_CONFLICTS.md](./TROUBLESHOOTING_DNS_CONFLICTS.md)
+
+### Quick Summary (for reference)
+
+1. **Delete conflicting DNS records** in Cloudflare (A, AAAA, or CNAME for @ and www)
+2. **Access Zero Trust dashboard**: https://one.dash.cloudflare.com
+3. **Create tunnel**: Networks → Tunnels → Create a tunnel → Name: "homelab-tunnel"
+4. **Copy tunnel token** from the Docker installation command
+5. **Add public hostnames**:
+   - `christorresdev.com` → `http://192.168.50.120:80`
+   - `www.christorresdev.com` → `http://192.168.50.120:80`
+6. **Deploy cloudflared container** on CT 200 (see below)
+
+### 2.1 Deploy Cloudflared on CT 200
 
 SSH into CT 200 (192.168.50.120):
 
@@ -86,37 +105,59 @@ Create the webnet network (if not exists):
 docker network create webnet
 ```
 
-### 2.2 Create Tunnel in Cloudflare Dashboard
-
-1. In Cloudflare dashboard, go to "Zero Trust" (left sidebar)
-2. Click "Networks" → "Tunnels"
-3. Click "Create a tunnel"
-4. Select "Cloudflared"
-5. Name it: `homelab-tunnel`
-6. Click "Save tunnel"
-
-**Copy the tunnel token** - you'll see a command like:
-```
-docker run cloudflare/cloudflared:latest tunnel --no-autoupdate run --token eyJh...
+Create project directory:
+```bash
+cd /srv/docker
+mkdir -p portfolio
+cd portfolio
 ```
 
-Save the token (the part after `--token`).
+Create `.env` file with your tunnel token:
+```bash
+nano .env
+```
 
-### 2.3 Configure Tunnel
+Add (replace with YOUR token from Cloudflare):
+```env
+TUNNEL_TOKEN=eyJhIjoiYWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkw...
+```
 
-In Cloudflare tunnel settings:
+Create `docker-compose.cloudflared.yml`:
+```bash
+nano docker-compose.cloudflared.yml
+```
 
-**Public Hostname #1** (for Nginx Proxy Manager):
-- Subdomain: (leave blank) or `www`
-- Domain: `christorresdev.com`
-- Service Type: `HTTP`
-- URL: `192.168.50.120:80`
+Paste this content:
+```yaml
+version: '3.8'
 
-**Public Hostname #2** (for www redirect):
-- Subdomain: `www`
-- Domain: `christorresdev.com`
-- Service Type: `HTTP`
-- URL: `192.168.50.120:80`
+services:
+  cloudflared:
+    container_name: cloudflared-tunnel
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+    networks:
+      - webnet
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+
+networks:
+  webnet:
+    external: true
+```
+
+Deploy the tunnel:
+```bash
+docker compose -f docker-compose.cloudflared.yml up -d
+```
+
+Verify it's running:
+```bash
+docker logs cloudflared-tunnel
+```
+
+Look for "Connection established" messages (should see 4 of them).
 
 ---
 

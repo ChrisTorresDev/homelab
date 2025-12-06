@@ -237,19 +237,23 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
   - **Files Created**:
     - `/portfolio-website/` - Complete Next.js application with all pages
     - `Dockerfile` + `nginx.conf` - Production containerization
-    - `deployment/DEPLOYMENT_GUIDE.md` - Comprehensive step-by-step deployment instructions
+    - `deployment/DEPLOYMENT_GUIDE.md` - Comprehensive step-by-step deployment instructions (updated for 2025)
+    - `deployment/CLOUDFLARE_TUNNEL_SETUP_2025.md` - **NEW: 2025-specific Cloudflare dashboard guide**
+    - `deployment/TROUBLESHOOTING_DNS_CONFLICTS.md` - **NEW: DNS record conflict resolution**
     - `deployment/docker-compose.*.yml` - All deployment configurations (NPM, Cloudflared, Portfolio)
     - `PORTFOLIO_WEBSITE_SUMMARY.md` - Project summary and next steps
-  - **Status**: Website built and tested locally, ready for deployment to CT 200
+    - `CLOUDFLARE_TUNNEL_UPDATE_SUMMARY.md` - **NEW: Documentation update summary**
+  - **Status**: Website built and tested locally, documentation updated for current Cloudflare dashboard (Nov 2025)
   - **Cost**: $10-12/year (domain only, everything else FREE)
-  - **Next Steps**:
-    1. Set up Cloudflare account and add domain
-    2. Update Namecheap nameservers to Cloudflare
-    3. Create Cloudflare Tunnel (after DNS propagation)
-    4. Deploy Nginx Proxy Manager on CT 200
-    5. Deploy portfolio website container on CT 200
-    6. Configure DNS and email forwarding (contact@christorresdev.com)
-  - **Timeline**: Ready to deploy when DNS propagates (1-24 hours after nameserver update)
+  - **Current Deployment Progress**:
+    1. ✅ Domain purchased (christorresdev.com from Namecheap)
+    2. ✅ Cloudflare account created and domain added
+    3. ✅ Namecheap nameservers updated to Cloudflare
+    4. ⏳ Cloudflare Tunnel setup (DNS conflict being resolved with updated 2025 documentation)
+    5. ⏳ Deploy Nginx Proxy Manager on CT 200
+    6. ⏳ Deploy portfolio website container on CT 200
+    7. ⏳ Configure DNS and email forwarding (contact@christorresdev.com)
+  - **Timeline**: Deployment in progress, documentation updated for current Cloudflare dashboard (Nov 2025)
 
 **Next Steps:**
 1. ✅ **Tailscale for remote access from outside home network** - Deployed and working.
