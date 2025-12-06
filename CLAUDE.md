@@ -37,6 +37,8 @@ The guide is tailored to a specific hardware configuration:
 - **Portainer**: Docker container management UI (CT 200)
 - **AdGuard Home**: Network-wide ad-blocking DNS sinkhole (CT 200)
 - **Tailscale**: Zero-config VPN mesh network
+- **Nginx Proxy Manager**: Reverse proxy with Let's Encrypt SSL automation (CT 200)
+- **Uptime Kuma**: Service monitoring dashboard with alerting (CT 200)
 - **Proxmox Backup Server**: Automated VM/CT backups with retention
 
 ### Storage Architecture (ZFS)
@@ -156,7 +158,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 
 ## Current Build Progress
 
-**Last Updated**: 2025-11-23 (Portfolio Website Development Session)
+**Last Updated**: 2025-12-06 (Nginx Proxy Manager + Uptime Kuma Deployment Session)
 
 ### Phase 1: Legion Desktop Setup (IN PROGRESS)
 
@@ -194,7 +196,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
   - ZFS dataset created: bulkpool/docker-volumes
   - Mount point configured: /srv/docker
   - Directory structure created for services
-  - Portainer deployed (https://192.168.50.120:9443)
+  - Portainer deployed (https://portainer.christorresdev.com via NPM, https://192.168.50.120:9443 direct)
   - Watchtower deployed (auto-updates containers daily)
   - **RustDesk Server deployed and configured:**
     - Server running on 192.168.50.120
@@ -202,7 +204,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
     - Clients configured on: Windows VM, Mac, and phone
     - Self-hosted remote desktop working
   - **Nextcloud deployed on bulkpool:**
-    - Web UI: http://192.168.50.120:8080
+    - Web UI: https://nextcloud.christorresdev.com (via NPM with SSL)
     - MariaDB + Redis for performance
     - Data stored on bulkpool/cloud dataset
     - Sync clients configured on: Windows VM, Mac, and phone
@@ -213,8 +215,19 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
     - Remote access to all devices on the LAN is working
   - **AdGuard Home deployed for network-wide ad-blocking:**
     - Deployed as a Docker container on infra-lxc (192.168.50.120)
-    - Admin UI available at http://192.168.50.120:8083
+    - Admin UI: https://adguard.christorresdev.com (via NPM with SSL)
     - Router configured to use AdGuard Home for DNS
+  - **Nginx Proxy Manager deployed with SSL:**
+    - Admin UI: http://192.168.50.120:81
+    - Let's Encrypt wildcard certificate configured (*.christorresdev.com + christorresdev.com)
+    - Cloudflare DNS validation via API token
+    - SSL certificates automatically renewing
+    - Proxy hosts configured with HTTPS for all internal services
+  - **Uptime Kuma deployed for monitoring:**
+    - Dashboard: https://kuma.christorresdev.com (via NPM with SSL)
+    - Monitoring: Proxmox (192.168.50.110), Windows 11 VM (192.168.50.225), AdGuard, Nextcloud, Portainer, RustDesk, Uptime Kuma itself
+    - 60-second heartbeat intervals configured
+    - All services showing green status
 
 **New Projects:**
 - ✅ **Portfolio Website for Freelance Business (christorresdev.com)**: DEVELOPMENT COMPLETE
@@ -249,20 +262,24 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
     1. ✅ Domain purchased (christorresdev.com from Namecheap)
     2. ✅ Cloudflare account created and domain added
     3. ✅ Namecheap nameservers updated to Cloudflare
-    4. ⏳ Cloudflare Tunnel setup (DNS conflict being resolved with updated 2025 documentation)
-    5. ⏳ Deploy Nginx Proxy Manager on CT 200
-    6. ⏳ Deploy portfolio website container on CT 200
-    7. ⏳ Configure DNS and email forwarding (contact@christorresdev.com)
-  - **Timeline**: Deployment in progress, documentation updated for current Cloudflare dashboard (Nov 2025)
+    4. ✅ Nginx Proxy Manager deployed on CT 200 with Let's Encrypt SSL
+    5. ✅ DNS records configured for internal services (kuma, portainer, adguard, nextcloud)
+    6. ⏳ Cloudflare Tunnel setup for public portfolio website
+    7. ⏳ Deploy portfolio website container on CT 200
+    8. ⏳ Configure DNS and email forwarding (contact@christorresdev.com)
+  - **Timeline**: Internal services complete with HTTPS, portfolio deployment pending Cloudflare Tunnel setup
 
 **Next Steps:**
 1. ✅ **Tailscale for remote access from outside home network** - Deployed and working.
 2. ✅ **AdGuard Home for network-wide ad-blocking** - Deployed and configured.
-3. Optional services documented in phase1-simplified-build.md (ready to deploy):
-   - **Uptime Kuma**: Service monitoring dashboard with alerting
-   - **Nginx Proxy Manager**: Friendly reverse proxy with TLS certificate management
-4. Phase 2: Set up Dell Latitude 7520 as Jellyfin/Tdarr media node
-5. Phase 3: Set up T480s as Proxmox Backup Server
+3. ✅ **Nginx Proxy Manager with Let's Encrypt SSL** - Deployed with wildcard certificate for all internal services.
+4. ✅ **Uptime Kuma monitoring dashboard** - Deployed and monitoring all critical services.
+5. **Portfolio website deployment** (NEXT):
+   - Set up Cloudflare Tunnel for public access
+   - Deploy portfolio container on CT 200
+   - Configure email forwarding (contact@christorresdev.com)
+6. Phase 2: Set up Dell Latitude 7520 as Jellyfin/Tdarr media node
+7. Phase 3: Set up T480s as Proxmox Backup Server
 
 **Current Guide**: Following `phase1-simplified-build.md` - Phase 1 core infrastructure COMPLETE!
 
