@@ -42,12 +42,17 @@ The guide is tailored to a specific hardware configuration:
 - **Proxmox Backup Server**: Automated VM/CT backups with retention
 
 ### Storage Architecture (ZFS)
-- **rpool** (NVMe single disk on Legion): Proxmox system, VM disks - **Current Phase**
-- **bulkpool** (2x 1TB HDD mirror on Legion): Media, Nextcloud data, general files - **Current Phase**
-- **fastpool** (2x 1TB SSD mirror on Legion): VM disks, Docker volumes, databases - **Planned with external SSDs**
-- **bulkpool-expanded** (4x 1TB HDD RAIDZ1 on Legion): Expanded media storage - **Planned with external HDDs**
-- **backup-ssd** (2x 1TB SSD mirror on T480s): Receives ZFS send replicas - **Planned Phase 3**
-- **archive** (3TB HDD): Weekly offline snapshots, unplugged when idle - **Deferred until 3TB drive reconnected**
+- **rpool** (NVMe single disk on Legion): Proxmox system, VM disks - **✅ Active**
+- **bulkpool** (4x 1TB HDD RAIDZ1 via USB): Media, Nextcloud data, general files - **✅ Active (2.55TB usable)**
+  - Mediasonic 4-bay USB 3.2 enclosure
+  - Single-drive fault tolerance
+  - ZFS compression active (~37% space savings)
+- **fastpool** (3x 1TB SSD RAIDZ1 via SATA): Docker volumes, VM disks, databases - **✅ Active (1.79TB usable)**
+  - Connected via internal SATA
+  - Single-drive fault tolerance
+  - Optimized for performance (16k recordsize)
+- **backup-ssd** (2x 1TB SSD mirror on T480s): Receives ZFS send replicas - **⏳ Planned Phase 3**
+- **archive** (3TB HDD): Weekly offline snapshots, unplugged when idle - **⏳ Deferred (needs power adapter)**
 
 ### IP Address Scheme
 ```
@@ -158,9 +163,9 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 
 ## Current Build Progress
 
-**Last Updated**: 2025-12-06 (Nginx Proxy Manager + Uptime Kuma Deployment Session)
+**Last Updated**: 2025-12-09 (Storage Migration Complete - 4-Disk RAIDZ1 + 3-Disk SSD Fastpool)
 
-### Phase 1: Legion Desktop Setup (IN PROGRESS)
+### Phase 1: Legion Desktop Setup (**✅ COMPLETE**)
 
 **Completed Steps:**
 - ✅ **Proxmox VE 8 Installation**: Successfully installed on Legion Desktop (192.168.50.110)
@@ -193,9 +198,9 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 - ✅ **CT 200 - Infrastructure LXC**: COMPLETED
   - Debian 12 container created (192.168.50.120)
   - Docker and Docker Compose installed
-  - ZFS dataset created: bulkpool/docker-volumes
-  - Mount point configured: /srv/docker
-  - Directory structure created for services
+  - **ZFS dataset: fastpool/docker-volumes** (migrated from bulkpool for better performance)
+  - Mount point configured: /srv/docker → fastpool/docker-volumes
+  - All Docker services running on SSD storage for optimal performance
   - Portainer deployed (https://portainer.christorresdev.com via NPM, https://192.168.50.120:9443 direct)
   - Watchtower deployed (auto-updates containers daily)
   - **RustDesk Server deployed and configured:**
@@ -228,6 +233,26 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
     - Monitoring: Proxmox (192.168.50.110), Windows 11 VM (192.168.50.225), AdGuard, Nextcloud, Portainer, RustDesk, Uptime Kuma itself
     - 60-second heartbeat intervals configured
     - All services showing green status
+
+- ✅ **Storage Migration Completed (2025-12-09)**: MAJOR UPGRADE
+  - **Successfully migrated from 2-disk mirror to 4-disk RAIDZ1 + SSD fastpool**
+  - **bulkpool expansion:**
+    - Before: 2x 1TB HDD mirror (890GB usable)
+    - After: 4x 1TB HDD RAIDZ1 in Mediasonic USB 3.2 enclosure (2.55TB usable)
+    - **+185% capacity increase**
+    - ZFS compression active (~37% space savings)
+    - Single-drive fault tolerance maintained
+  - **fastpool creation:**
+    - 3x 1TB SSD RAIDZ1 via internal SATA (1.79TB usable)
+    - Docker volumes migrated to SSDs for better performance
+    - Optimized for VM disks, containers, and databases
+    - Single-drive fault tolerance
+  - **Migration process:**
+    - Zero data loss - all services migrated safely
+    - Used temporary SSD backup during migration
+    - Fixed all permission issues for unprivileged LXC
+    - All services tested and verified working
+  - **Total usable storage:** 4.34TB (2.55TB HDD + 1.79TB SSD)
 
 **New Projects:**
 - ✅ **Portfolio Website for Freelance Business (christorresdev.com)**: DEVELOPMENT COMPLETE
