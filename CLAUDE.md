@@ -33,13 +33,17 @@ The guide is tailored to a specific hardware configuration:
 ### Key Services
 - **RustDesk**: Self-hosted remote desktop server (CT 200)
 - **Jellyfin**: Media server with Intel Quick Sync transcoding (Dell 7520)
+- **Sonarr**: TV show automation and library management (Dell 7520)
+- **Radarr**: Movie automation and library management (Dell 7520)
+- **qBittorrent**: Torrent download client (Dell 7520)
+- **Prowlarr**: Indexer manager for Sonarr/Radarr (Dell 7520)
 - **Nextcloud**: Cloud storage on bulkpool (CT 200/210)
 - **Portainer**: Docker container management UI (CT 200)
 - **AdGuard Home**: Network-wide ad-blocking DNS sinkhole (CT 200)
 - **Tailscale**: Zero-config VPN mesh network
 - **Nginx Proxy Manager**: Reverse proxy with Let's Encrypt SSL automation (CT 200)
 - **Uptime Kuma**: Service monitoring dashboard with alerting (CT 200)
-- **Proxmox Backup Server**: Automated VM/CT backups with retention
+- **Proxmox Backup Server**: Automated VM/CT backups with retention (planned Phase 3)
 
 ### Storage Architecture (ZFS)
 - **rpool** (NVMe single disk on Legion): Proxmox system, VM disks - **✅ Active**
@@ -163,7 +167,7 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 
 ## Current Build Progress
 
-**Last Updated**: 2025-12-09 (Storage Migration Complete - 4-Disk RAIDZ1 + 3-Disk SSD Fastpool)
+**Last Updated**: 2025-12-10 (Phase 2 Media Automation Stack Complete - Sonarr, Radarr, qBittorrent, Prowlarr)
 
 ### Phase 1: Legion Desktop Setup (**✅ COMPLETE**)
 
@@ -323,7 +327,136 @@ Use the homelab-guru agent when questions require deep homelab expertise beyond 
 **Known Minor Issues:**
 - Bluetooth devices don't work at Windows login screen (Windows security feature) - USB keyboard required for login, Bluetooth works after login
 
-### Phase 2: Dell Latitude 7520 Media Node (NOT STARTED)
+### Phase 2: Dell Latitude 7520 Media Node (**✅ COMPLETE**)
+
+**Completed Steps:**
+- ✅ **Ubuntu Server 24.04 Installation**: Successfully installed on Dell Latitude 7520 (192.168.50.130)
+  - Static IP configured (192.168.50.130/24)
+  - Network connectivity verified to Legion and internet
+  - System fully updated and timezone configured
+- ✅ **Intel Quick Sync Enabled**: 11th gen Iris Xe hardware transcoding ready
+  - VA-API drivers installed (intel-media-va-driver-non-free)
+  - User added to video and render groups
+  - Hardware acceleration verified with vainfo
+  - Codec support confirmed: H.264, HEVC/H.265, VP9, AV1, MPEG2, VC1
+  - Device path: /dev/dri/renderD128
+- ✅ **Docker Installation**: Docker and Docker Compose deployed
+  - Docker Engine installed via official script
+  - Docker Compose plugin installed
+  - User added to docker group for non-root access
+  - Verified with hello-world test container
+- ✅ **NFS Mount from Legion**: bulkpool/media mounted successfully
+  - NFSv3 configured for compatibility
+  - Mount path: /mnt/media → 192.168.50.110:/bulkpool/media
+  - Auto-mount configured in /etc/fstab with _netdev option
+  - 2.6TB media storage accessible
+  - Directory structure: Movies/, TV/, Music/, Photos/
+- ✅ **Jellyfin Deployment**: Media server running with hardware transcoding
+  - Docker Compose deployment in ~/jellyfin/
+  - Web UI: http://192.168.50.130:8096
+  - Hardware acceleration: VA-API enabled
+  - Device: /dev/dri/renderD128 passed through to container
+  - Media libraries configured: Movies, TV Shows, Music, Photos
+  - Admin account created and configured
+  - Group IDs configured for render (109) and video (44) groups
+- ✅ **Apple TV 4K Client Setup**: Infuse Pro configured and tested
+  - Infuse Pro installed on Apple TV 4K (yearly subscription: $12.99/year)
+  - Connected to Jellyfin server at 192.168.50.130:8096
+  - Quality set to "Original" for direct play
+  - Hardware decoding and audio passthrough enabled
+  - Apple TV Match Dynamic Range and Match Frame Rate enabled
+  - **4K direct play verified**: 0% GPU usage during playback
+  - Streaming to 65" 4K HDR TV via HDMI
+  - No transcoding required for H.264/H.265 content
+
+**Performance Results:**
+- ✅ **Direct Play Working**: Apple TV 4K natively decodes video (Intel GPU idle at 0%)
+- ✅ **Hardware Transcoding Ready**: VA-API configured for scenarios requiring transcoding
+- ✅ **Expected Capability**: 4+ simultaneous 1080p transcodes OR 2x 4K→1080p transcodes
+- ✅ **Network Performance**: Gigabit Ethernet providing stable 4K streaming
+
+**Client Application Decision:**
+- **Infuse Pro selected** over Swiftfin due to:
+  - Superior 4K HDR direct play support (HDR10 + Dolby Vision)
+  - No audio sync issues
+  - Full codec support (H.265/HEVC, TrueHD, Atmos)
+  - Rock-solid stability
+  - Active development and bug fixes
+- **Swiftfin avoided** due to reported issues in Dec 2025:
+  - HDR black screen problems
+  - Dolby Vision color issues
+  - Audio sync problems
+  - Limited audio codec support
+
+**Architecture Confirmed:**
+```
+Legion (192.168.50.110)
+  └─ bulkpool/media (2.6TB ZFS RAIDZ1)
+        ↓ NFSv3 mount
+Dell 7520 (192.168.50.130)
+  └─ Jellyfin Server (Docker)
+     └─ Intel Quick Sync (11th gen Iris Xe + VA-API)
+        ↓ Direct Play (H.264/H.265)
+Apple TV 4K → HDMI → 65" 4K HDR TV
+```
+
+- ✅ **Power Management Configured for 24/7 Operation** (2025-12-10)
+  - Sleep/suspend/hibernate disabled permanently
+  - Lid switch configured to ignore (laptop can run closed)
+  - systemd-logind configured: HandleLidSwitch=ignore, IdleAction=ignore
+  - Server stays online 24/7 without suspending
+
+- ✅ **Media Automation Stack Deployed** (2025-12-10)
+  - **Sonarr** (port 8989): TV show automation
+    - Root folder: /tv → /mnt/media/TV
+    - Integrated with qBittorrent download client
+    - Successfully tested: Downloaded Stranger Things (Seasons 1-5)
+  - **Radarr** (port 7878): Movie automation
+    - Root folder: /movies → /mnt/media/Movies
+    - Integrated with qBittorrent download client
+    - Successfully tested: Movie downloads working
+  - **qBittorrent** (port 8080): Torrent client
+    - Downloads folder: /home/chris/media-stack/qbittorrent/downloads
+    - Integrated with Sonarr/Radarr for automatic imports
+  - **Prowlarr** (port 9696): Indexer manager
+    - Centralized indexer management for Sonarr/Radarr
+  - **All services running in Docker** via LinuxServer.io images
+  - **Auto-import configured**: Completed downloads moved to /mnt/media/ automatically
+
+**Issues Resolved During Setup:**
+- ✅ **Laptop sleep problem**: Dell was suspending after idle timeout, causing SSH disconnects
+  - Solution: Disabled sleep targets, configured logind to ignore lid and idle actions
+- ✅ **Disk space crisis**: Root filesystem reached 100% full (94GB/98GB)
+  - Cause: 82GB of downloads in qBittorrent folder
+  - Solution: Cleaned up downloads, freed 57GB (now at 40% usage)
+  - Prevention: Configured Sonarr/Radarr to remove completed downloads after import
+- ✅ **Radarr database corruption**: Disk I/O errors when disk was full
+  - Solution: Fixed permissions on /home/chris/media-stack/radarr/ directory
+  - Radarr database recovered after disk space freed
+- ✅ **Volume mapping**: Initial confusion about root folder paths
+  - Solution: Added /tv and /movies as root folders in Sonarr/Radarr settings
+
+**Architecture Update:**
+```
+Legion (192.168.50.110)
+  └─ bulkpool/media (2.6TB ZFS RAIDZ1)
+        ↓ NFSv3 mount
+Dell 7520 (192.168.50.130)
+  ├─ Jellyfin Server (Docker) → Intel Quick Sync transcoding
+  ├─ Sonarr (Docker) → TV automation → /mnt/media/TV/
+  ├─ Radarr (Docker) → Movie automation → /mnt/media/Movies/
+  ├─ qBittorrent (Docker) → Torrent downloads
+  └─ Prowlarr (Docker) → Indexer management
+        ↓ Direct Play (H.264/H.265)
+Apple TV 4K → HDMI → 65" 4K HDR TV
+```
+
+**Next Steps for Phase 2:**
+1. ✅ **Media Automation Stack** - Sonarr, Radarr, qBittorrent, Prowlarr deployed and tested
+2. ⏳ **Remote Access**: Enable Jellyfin access via Tailscale for streaming outside home network
+3. ⏳ **Tdarr Deployment** (optional): Media optimization/transcoding automation
+4. ⏳ **Monitoring**: Add Dell 7520 to Uptime Kuma dashboard
+5. ⏳ **Disk Space Management**: Consider moving downloads to NFS mount or monitor usage regularly
 
 ### Phase 3: T480s Backup Server (NOT STARTED)
 
